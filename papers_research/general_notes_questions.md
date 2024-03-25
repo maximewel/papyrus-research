@@ -6,9 +6,5 @@ Repeated multiple times: Transformers need lot of data to work, is dataset going
 Curious: Swin does not use positional embeddings, but positional cues in the self-attention computation.
 
 
-
-
-
-
 Database not selected: https://nlpr.ia.ac.cn/databases/handwriting/Online_database.html
     Appears to be "stroke x,y" and not sampled with a frequency, which means we can't really extract the time well.
