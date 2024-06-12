@@ -1,11 +1,5 @@
 import torch.nn as nn
-from enum import Enum, auto
-
-class FFActivationFunction(Enum):
-    RELU = auto()
-    GELU = auto()
-    SILU = auto()
-    LEAKYRELU = auto()
+from activation.activation_func import FFActivationFunction, ActivationHelper
 
 class HwEncoder(nn.Module):
     ### Init variables ###
@@ -36,11 +30,8 @@ class HwEncoder(nn.Module):
     #Single dropout layer (no operation is performed / weights learned, acts as a mask, can be used on both activations)
     dropout_layer: nn.Dropout
 
-    ### Const ###
-    LRELU_NEGATIVE_SLOPE = 0.1
-
-    def __init__(self, hidden_dim: int, n_heads: int, ff_expension_ratio: 2, 
-                 ff_activation_function: FFActivationFunction = FFActivationFunction.RELU, dropout_ratio: float = 0.0)  -> None:
+    def __init__(self, hidden_dim: int, n_heads: int, ff_expension_ratio: int = 2, 
+                 ff_activation_function: FFActivationFunction = FFActivationFunction.RELU, dropout_ratio: float = 0.1)  -> None:
         self.hidden_dim = hidden_dim
         self.n_heads = n_heads
         self.ff_expension_ratio = ff_expension_ratio
@@ -51,35 +42,19 @@ class HwEncoder(nn.Module):
 
     def init_layers(self):
         """Init the layers of this encoder for further use"""
-        self.norm_layer_1 = nn.LayerNorm(self.hidden_dim)
         self.mha = nn.MultiheadAttention(self.hidden_dim, self.n_heads, batch_first=True)
-        
-        self.norm_layer_2 = nn.LayerNorm(self.hidden_dim)
+        self.norm_layer_1 = nn.LayerNorm(self.hidden_dim)
 
-        self.dropout_layer = nn.Dropout(self.dropout_ratio)
-
-        activation_function = self.activation_from_enum(self.ff_activation_function)
-
+        activation_function = ActivationHelper.activation_from_enum(self.ff_activation_function)
         self.feed_forward = nn.Sequential(
             nn.Linear(self.hidden_dim, self.ff_expension_ratio * self.hidden_dim),
             activation_function,
             nn.Linear(self.ff_expension_ratio * self.hidden_dim, self.hidden_dim),
         )
-    
-    def activation_from_enum(self, FF_enum_value: FFActivationFunction) -> nn.Module:
-        """Infer the activation function from the enum value"""
-        match FF_enum_value:
-            case FFActivationFunction.RELU:
-                return nn.ReLU()
-            case FFActivationFunction.GELU:
-                return nn.GELU()
-            case FFActivationFunction.SILU:
-                return nn.SiLU()
-            case FFActivationFunction.LEAKYRELU:
-                return nn.LeakyReLU(negative_slope = self.LRELU_NEGATIVE_SLOPE)
-            case _:
-                raise Exception(f"Impossible to parse activation function {self.ff_activation_function} into options {[f.name for f in FFActivationFunction]}")
+        self.norm_layer_2 = nn.LayerNorm(self.hidden_dim)
 
+        self.dropout_layer = nn.Dropout(self.dropout_ratio)
+    
     def forward(self, x):
         """Forward pass of the HW encoder
         Warning: As part of the overarching architecture, it expects positionally encoded and patchified input and 
