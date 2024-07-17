@@ -1,5 +1,9 @@
 import torch.nn as nn
-from activation.activation_func import FFActivationFunction, ActivationHelper
+import torch
+
+from source.model.blocks.constants.activation_func import FFActivationFunction, ActivationHelper
+
+from source.logging.log import logger, LogChannels
 
 class HwEncoder(nn.Module):
     ### Init variables ###
@@ -32,6 +36,8 @@ class HwEncoder(nn.Module):
 
     def __init__(self, hidden_dim: int, n_heads: int, ff_expension_ratio: int = 2, 
                  ff_activation_function: FFActivationFunction = FFActivationFunction.RELU, dropout_ratio: float = 0.1)  -> None:
+        super().__init__()
+
         self.hidden_dim = hidden_dim
         self.n_heads = n_heads
         self.ff_expension_ratio = ff_expension_ratio
@@ -39,10 +45,12 @@ class HwEncoder(nn.Module):
         if dropout_ratio < 0 or dropout_ratio >= 1:
             raise Exception(f"Dropout ratio {dropout_ratio} invalid. Please select droupout ratio c [0; 1[")
         self.dropout_ratio = dropout_ratio
+        
+        self.init_layers()
 
     def init_layers(self):
         """Init the layers of this encoder for further use"""
-        self.mha = nn.MultiheadAttention(self.hidden_dim, self.n_heads, batch_first=True)
+        self.mhsa = nn.MultiheadAttention(self.hidden_dim, self.n_heads, batch_first=True)
         self.norm_layer_1 = nn.LayerNorm(self.hidden_dim)
 
         activation_function = ActivationHelper.activation_from_enum(self.ff_activation_function)
@@ -55,14 +63,19 @@ class HwEncoder(nn.Module):
 
         self.dropout_layer = nn.Dropout(self.dropout_ratio)
     
-    def forward(self, x):
-        """Forward pass of the HW encoder
-        Warning: As part of the overarching architecture, it expects positionally encoded and patchified input and 
-        does not perform any additional processing over the input
+    def forward(self, x:torch.Tensor, source_padding_mask: torch.Tensor):
+        """Forward pass of the HW encoder.
+        Args
+        -----
+            x: Batch of patchified images of dimensions [batch_size, n_patches, hidden_d]
+                With batch_size the number of images in a batch
+                With n_patches the number of patches per image
+                With hidden_d the flattened dimensions of the patches
+            source_padding_mask: Mask of dimensions [batch_size, n_patches] where true indicates that the patch is 
         """
         ## P1 ##
         #Do MHA over input
-        msa_out = self.mhsa(x, x, x)[0]
+        msa_out, _ = self.mhsa(x, x, x, key_padding_mask=source_padding_mask, need_weights=False)
         msa_out = self.dropout_layer(msa_out)
         #Add & norm
         x = self.norm_layer_1(x + msa_out)
