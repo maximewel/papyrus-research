@@ -3,13 +3,10 @@ import torch
 from torch.nn import L1Loss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from torch import Tensor
 from rich.progress import Progress, MofNCompleteColumn, TextColumn, TimeElapsedColumn, BarColumn
 
-from model.blocks.constants.tokens import Tokens
-from model.hw_model import HwTransformer
+from source.model.hw_model import HwTransformer
 from source.logging.log import logger, LogChannels
-from source.model.blocks.helper.tensor_utils import TensorUtils
 
 # def obtain_all_predictions(transformer: HwTransformer, images: Tensor, masks: Tensor, sequences: Tensor, 
 #                            device: torch.device, progress: Progress = None, seq_progress_bar_id: any = None) -> Tensor:

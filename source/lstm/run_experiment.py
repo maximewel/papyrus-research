@@ -2,30 +2,22 @@
 import os
 import sys
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, project_root)
 
-from source.loops import do_training
+from source.lstm.lstm_loop import do_training
 from source.data.brush.brush_dataset import BrushDataset, StrokeMode
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 
-from source.model.hw_model import HwTransformer
+from source.model.blocks.hw_lstm import HwLstm
 from source.logging.log import logger, LogChannels
 from datetime import datetime
 from source.model.blocks.constants.files import *
 
 import torch
 
-ENCODER_HEADES = 2
-DECODER_HEADS = 4
-
-ENCODER_LAYERS = 4
-DECODER_LAYERS = 4
-
-BATCH_SIZE = 32
-PATCHES_DIM = (4, 4)
-EMBEDDING_DIMS = 12
+BATCH_SIZE = 256
 
 from source.model.blocks.constants.device_helper import device
 
@@ -41,11 +33,11 @@ if __name__ == "__main__":
     #print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
     # Init data
-    dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, display_stats=True, save_to_file=False, strokemode=StrokeMode.SUBSTROKES)
+    dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=(1,1), display_stats=True, save_to_file=False, strokemode=StrokeMode.SUBSTROKES)
     dataset.transform_to_batch()
 
-    train_size = int(0.002* len(dataset))
-    test_size = int(0.001 * len(dataset))
+    train_size = int(0.7 * len(dataset))
+    test_size = int(0.2 * len(dataset))
     validation_size = len(dataset) - (train_size + test_size)
 
     train_dataset, test_dataset, validation_dataset = random_split(dataset, [train_size, test_size, validation_size])
@@ -60,11 +52,7 @@ if __name__ == "__main__":
     logger.log(LogChannels.INIT, f"Loading {len(train_loader)} sub-strokes batches as train, {len(test_loader)} sub-strokes batches as test")
 
     #Create model
-    model = HwTransformer(False, False, hidden_dim=EMBEDDING_DIMS, enc_dec_dropout_ratio=0.1,
-                          n_encoder_layers=ENCODER_LAYERS, n_encoder_heads=ENCODER_HEADES,
-                          n_decoder_layers=DECODER_LAYERS, n_decoder_heads=DECODER_HEADS,
-                          encoder_patch_dimension=PATCHES_DIM, fixed_size_image_dimension=dataset.target_image_shape)
-    
+    model = HwLstm(input_size=2, hidden_size=10, num_layers=8)
     logger.log(LogChannels.INIT, f"Loaded {len(dataset.signals_as_tensor)} sub-strokes")
     
     n_model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
