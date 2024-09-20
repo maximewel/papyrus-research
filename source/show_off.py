@@ -19,9 +19,9 @@ import torch
 import matplotlib.pyplot as plt
 
 
-folder_model_to_load = "2024-06-27 23-53-54"
+folder_model_to_load = "2024-07-26 15-59-20"
 
-PATCHES_DIM = (8, 8)
+PATCHES_DIM = (4, 4)
 
 if __name__ == "__main__":
 
@@ -38,11 +38,11 @@ if __name__ == "__main__":
         # Init data
         dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, display_stats=True, save_to_file=False, strokemode=StrokeMode.SUBSTROKES)
         dataset.transform_to_batch()
-        
+
         nextIndex = 0
         while nextIndex < len(dataset):
             nextIndex += 1
-            while len(dataset.signals[nextIndex]) < 50:
+            while len(dataset.signals[nextIndex]) < 10:
                 nextIndex += 1
 
             image, padding, originalSignal = dataset.patchified_images[nextIndex], dataset.patches_padding_masks[nextIndex], dataset.signals_as_tensor[nextIndex]
@@ -54,18 +54,34 @@ if __name__ == "__main__":
                 resultSignal = originalSignal[:1]
                 for i in range(originalSignal.shape[0]):
                     print(f"{1+i}/{originalSignal.shape[0]}")
-                    res = model.forward(image.unsqueeze(0), padding.unsqueeze(0), resultSignal.unsqueeze(0))
+                    y_pred_finished, eos_logit = model.forward(image.unsqueeze(0), padding.unsqueeze(0), resultSignal.unsqueeze(0))
                     #Used to avoid OOM during autoregression
-                    res = res.detach()
-                    resultSignal = torch.vstack([resultSignal, res])
-                    print(f"Got {res}, final signal last 5 \n{resultSignal[-5:]}")
+                    y_pred_finished = y_pred_finished.detach()
+                    resultSignal = torch.vstack([resultSignal, y_pred_finished])
+                    print(f"Got {y_pred_finished}, final signal last 5 \n{resultSignal[-5:]}")
+
+                    # Apply sigmoid to get the stop probability, convert using standard 
+                    stop_probability = torch.sigmoid(eos_logit)
+                    print(f"stop proba: {stop_probability}")
+                    stop_signal = stop_probability >= 0.5
+                    # Check if we should stop
+                    stop = stop_signal.item()
+                    if stop:
+                        print(f"Signal stopped")
+                        break
 
             print(f"Got final signal of length {resultSignal.shape[0]}")
 
-            mult_tensor = torch.tensor(dataset.target_image_shape, dtype=int, device=resultSignal.device)
-            resultSignalAsInt = (resultSignal * mult_tensor).int()
-            sig_l = TensorUtils.true_seq_lengths_of_tensor(originalSignal)
-            originalSignalAsInt = (originalSignal[:sig_l] * mult_tensor).int()
+            resize = False
+
+            if resize:
+                mult_tensor = torch.tensor(dataset.target_image_shape, dtype=int, device=resultSignal.device)
+                resultSignalAsInt = (resultSignal * mult_tensor).int()
+                sig_l = TensorUtils.true_seq_lengths_of_tensor(originalSignal)
+                originalSignalAsInt = (originalSignal[:sig_l] * mult_tensor).int()
+            else:
+                resultSignalAsInt = resultSignal.int()
+                originalSignalAsInt = originalSignal.int()
 
             print(originalSignal[:10])
             print(originalSignalAsInt[:10])
@@ -80,7 +96,7 @@ if __name__ == "__main__":
             #Re-create images for both
             orig_image = dataset.images[nextIndex]
             orig_signal = ImageHelper.create_image(originalSignalAsInt.cpu().numpy())
-            final_image = ImageHelper.create_image(resultSignalAsInt.cpu().numpy())
+            final_image = ImageHelper.create_image(resultSignalAsInt.cpu().numpy(), orig_signal.shape)
 
             fig, axs = plt.subplots(1, 3, figsize=(10, 5))  # 1 row, 2 columns
 

@@ -9,7 +9,7 @@ class TensorUtils():
     @classmethod
     def padding_indexes_mask(cls, tensor: Tensor) -> Tensor:
         """Return the padding indexes mask """
-        return ~(tensor == Tokens.EOS_TENSOR.value.to(tensor.device)).all(dim=-1)
+        return ~(tensor == Tokens.PADDING_TENSOR.value.to(tensor.device)).all(dim=-1)
     
     @classmethod
     def true_seq_lengths_of_tensor(cls, tensor: Tensor) -> tuple:

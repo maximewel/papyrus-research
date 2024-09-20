@@ -17,15 +17,17 @@ from source.model.blocks.constants.files import *
 
 import torch
 
-ENCODER_HEADES = 2
+N_EPOCHS = 20
+
+ENCODER_HEADS = 4
 DECODER_HEADS = 4
 
 ENCODER_LAYERS = 4
 DECODER_LAYERS = 4
 
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 PATCHES_DIM = (4, 4)
-EMBEDDING_DIMS = 12
+EMBEDDING_DIMS = 8
 
 from source.model.blocks.constants.device_helper import device
 
@@ -44,8 +46,8 @@ if __name__ == "__main__":
     dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, display_stats=True, save_to_file=False, strokemode=StrokeMode.SUBSTROKES)
     dataset.transform_to_batch()
 
-    train_size = int(0.002* len(dataset))
-    test_size = int(0.001 * len(dataset))
+    train_size = int(0.2* len(dataset))
+    test_size = int(0.1 * len(dataset))
     validation_size = len(dataset) - (train_size + test_size)
 
     train_dataset, test_dataset, validation_dataset = random_split(dataset, [train_size, test_size, validation_size])
@@ -61,7 +63,7 @@ if __name__ == "__main__":
 
     #Create model
     model = HwTransformer(False, False, hidden_dim=EMBEDDING_DIMS, enc_dec_dropout_ratio=0.1,
-                          n_encoder_layers=ENCODER_LAYERS, n_encoder_heads=ENCODER_HEADES,
+                          n_encoder_layers=ENCODER_LAYERS, n_encoder_heads=ENCODER_HEADS,
                           n_decoder_layers=DECODER_LAYERS, n_decoder_heads=DECODER_HEADS,
                           encoder_patch_dimension=PATCHES_DIM, fixed_size_image_dimension=dataset.target_image_shape)
     
@@ -74,7 +76,7 @@ if __name__ == "__main__":
     
     #Start training
     try:
-        do_training(model, train_loader, test_loader, device)
+        do_training(model, train_loader, test_loader, device, N_EPOCHS)
     except Exception as e:
         print(f"Encountered exception while training model: {e}")
         raise e

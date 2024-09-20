@@ -23,6 +23,7 @@ class HwTransformer(nn.Module):
     encoder_layers: nn.ModuleList[HwEncoder]
     decoder_layers: nn.ModuleList[HwDecoder]
     output_mlp: nn.Module
+    stop_signal_output: nn.Linear
 
     #Additional config
     use_prediction_token: bool
@@ -155,6 +156,9 @@ class HwTransformer(nn.Module):
         #Output MLP has the full flattened sequence embeddings as input and create an output token
         self.output_mlp = nn.Linear(self.autoregressive_target_seq_len * self.hidden_dim , self.output_dim)
 
+        #Output signal indicating whether to end the signal on the next prediction. Result in a single value
+        self.stop_signal_output = nn.Linear(self.autoregressive_target_seq_len * self.hidden_dim, 1)
+
     def normalize_target_sequences(self, target_sequences: Tensor) -> tuple[Tensor, Tensor]:
         """Normalize the target sequences and generate the relevant padding mask
         
@@ -199,6 +203,10 @@ class HwTransformer(nn.Module):
         Args:
             images: A batch of images
             target_sequences: A batch of target sequences
+
+        Returns:
+            Tensor - (x,y) coordinate 
+            Tensor - (bool) stop token 
         """
         logger.log(LogChannels.DIMENSIONS, f"Transformer - images dim: {patchified_images.dtype} {patchified_images.shape}")
         logger.log(LogChannels.DIMENSIONS, f"Transformer - masks dim: {images_padding_masks.dtype} {images_padding_masks.shape}")
@@ -245,4 +253,8 @@ class HwTransformer(nn.Module):
         flattened_decoder_out = torch.flatten(decoder_out, start_dim=1)  
         #Final MLP will obtain a coordinate (x,y) for each batched input
         final_output = self.output_mlp(flattened_decoder_out)
-        return final_output
+
+        # Signal output takes the same flattened decoder output and transforms it into a boolean value
+        stop_signal_output = self.stop_signal_output(flattened_decoder_out)
+
+        return final_output, stop_signal_output
