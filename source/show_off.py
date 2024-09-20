@@ -7,7 +7,7 @@ sys.path.insert(0, project_root)
 from source.model.blocks.constants.files import *
 
 from source.model.hw_model import HwTransformer
-from source.data.brush.brush_dataset import BrushDataset, StrokeMode
+from source.data_management.brush.brush_dataset import BrushDataset, StrokeMode
 from source.model.hw_model import HwTransformer
 from source.model.blocks.constants.files import *
 from source.model.blocks.constants.sequence_to_image import ImageHelper
@@ -19,9 +19,26 @@ import torch
 import matplotlib.pyplot as plt
 
 
-folder_model_to_load = "2024-06-27 23-53-54"
+folder_model_to_load = "2024-09-04 23-11-33"
 
 PATCHES_DIM = (8, 8)
+
+MIN_DIM_SHOWOFF = 40
+
+STOP_CONDITION_IDENTICAL_OUTPUTS = 10
+
+DENORMALIZE_SEQUENCES = True
+
+REPLACE_WITH_GOLDEN = True
+
+tolerance = 0.00001
+def has_identical_last_values(tensor, n: int) -> bool:
+    """Return whether the last N values of the tensor are exact"""
+    last_rows = tensor[-n:, :]    
+    print(f"Last: {last_rows}")
+    are_identical = torch.all(torch.abs(last_rows - last_rows[0, :]) < tolerance, dim=1).all()    
+    print(f"Are identical: {are_identical}")
+    return are_identical.item()
 
 if __name__ == "__main__":
 
@@ -31,18 +48,19 @@ if __name__ == "__main__":
 
         print(f"Loading model from: {filepath}")
 
-        model: HwTransformer =  torch.load(filepath)
+        model: HwTransformer = torch.load(filepath)
 
         model.eval()
 
         # Init data
-        dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, display_stats=True, save_to_file=False, strokemode=StrokeMode.SUBSTROKES)
+        dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, display_stats=True, save_to_file=False, strokemode=StrokeMode.SUBSTROKES, 
+                               normalize_coordinate_sequences=True, normalize_pixel_values=True)
         dataset.transform_to_batch()
         
         nextIndex = 0
         while nextIndex < len(dataset):
             nextIndex += 1
-            while len(dataset.signals[nextIndex]) < 50:
+            while len(dataset.signals[nextIndex]) < MIN_DIM_SHOWOFF:
                 nextIndex += 1
 
             image, padding, originalSignal = dataset.patchified_images[nextIndex], dataset.patches_padding_masks[nextIndex], dataset.signals_as_tensor[nextIndex]
@@ -52,26 +70,43 @@ if __name__ == "__main__":
             with torch.no_grad():
                 #Limit generation to avoid infinite autoregression
                 resultSignal = originalSignal[:1]
-                for i in range(originalSignal.shape[0]):
-                    print(f"{1+i}/{originalSignal.shape[0]}")
-                    res = model.forward(image.unsqueeze(0), padding.unsqueeze(0), resultSignal.unsqueeze(0))
+                working_signal = originalSignal[:1]
+
+                stop_signal = False
+
+                i = 1
+                while not stop_signal:
+                    print(f"\rGenerating point {i}")
+
+                    res = model.forward(image.unsqueeze(0), padding.unsqueeze(0), working_signal.unsqueeze(0))
                     #Used to avoid OOM during autoregression
                     res = res.detach()
                     resultSignal = torch.vstack([resultSignal, res])
-                    print(f"Got {res}, final signal last 5 \n{resultSignal[-5:]}")
+                    if REPLACE_WITH_GOLDEN:
+                        working_signal = torch.vstack([working_signal, originalSignal[i+1]])
+                    else:
+                        working_signal = torch.vstack([working_signal, res])
+
+                    print(f"Got {res}, final signal last 5 \n{resultSignal[-STOP_CONDITION_IDENTICAL_OUTPUTS:]}")
+
+                    if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS):
+                        print(f"Early stop")
+                        stop_signal = True
+
+                    i += 1
 
             print(f"Got final signal of length {resultSignal.shape[0]}")
 
-            mult_tensor = torch.tensor(dataset.target_image_shape, dtype=int, device=resultSignal.device)
+            mult_tensor = torch.tensor(dataset.target_image_shape, dtype=int, device=resultSignal.device) if DENORMALIZE_SEQUENCES else 1
             resultSignalAsInt = (resultSignal * mult_tensor).int()
             sig_l = TensorUtils.true_seq_lengths_of_tensor(originalSignal)
             originalSignalAsInt = (originalSignal[:sig_l] * mult_tensor).int()
 
-            print(originalSignal[:10])
-            print(originalSignalAsInt[:10])
+            print(f"Original signal first 10 cord : {originalSignal[:10]}")
+            print(f"Original signal first 10 cord as int : {originalSignalAsInt[:10]}")
 
-            print(resultSignal[:10])
-            print(resultSignalAsInt[:10])
+            print(f"Res signal first 10 cord : {resultSignal[:10]}")
+            print(f"Tes signal first 10 cord as int : {resultSignalAsInt[:10]}")
 
             #Pad to obtain original third dimension, 'penup'
             resultSignalAsInt = torch.nn.functional.pad(resultSignalAsInt, (0, 1))

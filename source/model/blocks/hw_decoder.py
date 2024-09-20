@@ -12,9 +12,9 @@ class HwDecoder(nn.Module):
     # Hidden dimension of the encoder's heads
     hidden_dim: int
     
-    # Number of heads of this encoder. In an idea case, each head looks for a different feature in the data
+    # Number of heads of this encoder. In an ideal case, each head looks for a different feature in the data
     n_heads: int
-    
+ 
     # Expension ratio for the feed-forward network. The FFN expends the features dimension and applies an activation function on them.
     # This parameter allows for moving the ffn expension.
     ff_expension_ratio: int
@@ -42,10 +42,11 @@ class HwDecoder(nn.Module):
     # Single dropout layer (no operation is performed / weights learned, acts as a mask, can be used on both activations)
     dropout_layer: nn.Dropout
 
+    #Fixed causal mask preventing tokens attending to futur tokens
     causal_mask: Tensor
 
     def __init__(self, hidden_dim: int, n_heads: int, target_sequence_length: int, dropout_ratio: float = 0.1, ff_expension_ratio: int = 2, 
-                 ff_activation_function: FFActivationFunction = FFActivationFunction.RELU) -> None:
+                 ff_activation_function: FFActivationFunction = FFActivationFunction.RELU, use_gen_token: bool = True) -> None:
         super().__init__()
         
         self.hidden_dim = hidden_dim
@@ -113,7 +114,7 @@ class HwDecoder(nn.Module):
                                                                 key_padding_mask=encoder_padding_mask, need_weights=False)
         input_and_target_attention = self.norm_layer_2(msa_target_out + self.dropout_layer(input_and_target_attention))
         logger.log(LogChannels.DIMENSIONS, f"Decoder - after cross-attention: {input_and_target_attention.shape}")
-
+                
         ffn_output = self.feed_forward(input_and_target_attention)
         ffn_output = self.norm_layer_3(input_and_target_attention + self.dropout_layer(ffn_output))
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Final output dimension after ffn: {ffn_output.shape}")

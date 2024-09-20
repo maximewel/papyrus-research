@@ -1,7 +1,7 @@
 """Contains the train and test loops for the model(s)"""
 import torch
 from torch.nn import L1Loss
-from torch.optim import Adam
+from torch.optim import AdamW, Adam
 from torch.utils.data import DataLoader
 from torch import Tensor
 from rich.progress import Progress, MofNCompleteColumn, TextColumn, TimeElapsedColumn, BarColumn
@@ -76,10 +76,9 @@ from source.model.blocks.helper.tensor_utils import TensorUtils
 
 #     return output_tensors
 
-def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: DataLoader, device: torch.device):
+def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: DataLoader, device: torch.device, 
+                n_epochs: int, lr: float):
     """Do the training and return the given model"""
-    N_EPOCHS = 20
-    LR = 0.005
 
     model = model.to(device)
 
@@ -94,13 +93,13 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
             ) as progress:
 
         # Training loop
-        optimizer = Adam(model.parameters(), lr=LR)
+        optimizer = Adam(model.parameters(), lr=lr)
         criterion = L1Loss(reduction='sum')
 
-        epoch_progress_bar = progress.add_task("[blue]Epoch...", total=N_EPOCHS)
+        epoch_progress_bar = progress.add_task("[blue]Epoch...", total=n_epochs)
         batch_progress_bar = progress.add_task("[green]Batch...", total=len(train_loader))
 
-        for epoch in range(N_EPOCHS):
+        for epoch in range(n_epochs):
             train_loss = 0.0
 
             progress.reset(batch_progress_bar)
@@ -122,7 +121,17 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
 
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=100.0)
                 optimizer.step()
+
+                # Check for vanishing or exploding gradients. This helps detecting two well-known issues with gradiants.
+                for name, param in model.named_parameters():
+                    if param.requires_grad:
+                        grad_norm = param.grad.norm()
+                        if grad_norm < 1e-6:
+                            print(f"Warning: Vanishing gradients in layer {name}")
+                        if grad_norm > 1e2:
+                            print(f"Warning: Exploding gradients in layer {name}")
 
                 progress.advance(batch_progress_bar)
 
@@ -132,7 +141,7 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
             progress.advance(epoch_progress_bar)
 
             train_loss /= len(train_loader)
-            print(f"Epoch {epoch + 1}/{N_EPOCHS} Train loss: {train_loss:.2f}")
+            print(f"Epoch {epoch + 1}/{n_epochs} Train loss: {train_loss:.2f}")
             train_losses.append(train_loss)
 
             # Test loop
@@ -152,7 +161,7 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                     torch.cuda.empty_cache() if torch.cuda.is_available() else None
                 
                 test_loss /= len(test_loader)
-                print(f"Epoch {epoch + 1}/{N_EPOCHS} Test loss: {test_loss:.2f}")
+                print(f"Epoch {epoch + 1}/{n_epochs} Test loss: {test_loss:.2f}")
             test_losses.append(test_loss)
 
         import matplotlib.pyplot as plt

@@ -14,6 +14,13 @@ class Patchificator():
     IMG_MAX_VALUE = 255
 
     def __init__(self, patch_dimension: tuple, fixed_image_dim: tuple) -> None:
+        """
+        Build a patchificator
+        Args
+        -----
+            patch_dimension: tuple - The patch dimensions, expected Tuple(width, height)
+            fixed_image_dim: tuple - The maximum fixed-length output dimension of the images, expected Tuple(width, height)
+        """
         self.unfolder = torch.nn.Unfold(patch_dimension, stride=patch_dimension)
         self.fixed_image_dim = fixed_image_dim
     
@@ -30,8 +37,7 @@ class Patchificator():
             images: list[np.ndarray] - Input images. List of np.ndarray
                 List: Because a list allows for non-homogeneous images
                 ndarray: Expecting images as ndarray
-            patch_dimension: tuple - The patch dimensions, expected (width, height)
-            fixed_image_dim: tuple - The output dimension of the images, expected (width, height)
+            normalize_value: bool - Whether to normalize the pixel's values by the max, 255 (expecting grayscale)
 
         Returns
         -----
@@ -69,12 +75,12 @@ class Patchificator():
         # Use unfolder to obtain patches. Float(): Unfolder does not work on int tensors.
         # Will give a result in the shape of [batch_size, n_patches, patches_dim]
         patchified_images: torch.Tensor = self.unfolder(padded_images).permute(0, 2, 1).float()
-        patchified_mask: torch.Tensor = self.unfolder(padding_masks).permute(0, 2, 1)
 
         #The pachified mask is pixel-wise and has the same dimensions as the padding images:  [batch_size, n_patches, patches_dim]
         #To obtain a padding mask, the last dim is reduced - if each pixel is padded, return true as this patch is a full padding.
         #If at least one pixel is false (not padding), then the patch is not masked (false).
         #Result in a tensor of shape [batch_size, n_patches]
+        patchified_mask: torch.Tensor = self.unfolder(padding_masks).permute(0, 2, 1)
         patchified_mask = torch.all(patchified_mask, dim=2)
 
         logger.log(LogChannels.PADDING, f"Example of patchified padded image: {patchified_images[0]}")

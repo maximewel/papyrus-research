@@ -25,7 +25,10 @@ class HwTransformer(nn.Module):
     output_mlp: nn.Module
 
     #Additional config
+    # Generation token used to store 'results', analog to classification token in VIT
     use_prediction_token: bool
+    prediction_token: nn.Parameter
+
     use_lstm: bool
 
     # Define the output of the model's prediction (it predicts a single point).s
@@ -63,8 +66,8 @@ class HwTransformer(nn.Module):
                     use_prediction_token: bool, use_lstm: bool,
                     hidden_dim: int = 20, enc_dec_dropout_ratio: float = 0.0,
                     encoder_patch_dimension: tuple = (20, 20), fixed_size_image_dimension: tuple = (500, 200),
-                    n_encoder_layers: int = 2, n_encoder_heads: int = 4, enc_ff_expension_ratio: int = 4, encoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.GELU,
-                    n_decoder_layers: int = 4, n_decoder_heads: int = 4, dec_ff_expension_ratio: int = 4, decoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.GELU, autoregressive_target_seq_len: int = 50,
+                    n_encoder_layers: int = 2, n_encoder_heads: int = 4, enc_ff_expension_ratio: int = 4, encoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.RELU,
+                    n_decoder_layers: int = 4, n_decoder_heads: int = 4, dec_ff_expension_ratio: int = 4, decoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.RELU, autoregressive_target_seq_len: int = 50,
                     output_dim: int = 2) -> None:
         
         super().__init__()
@@ -143,7 +146,6 @@ class HwTransformer(nn.Module):
         self.encoder_embedding_layer = nn.Linear(patch_dim, self.hidden_dim)
 
         #Decoder 'target sequences' input dimension is the decoder's output dimension
-        #As 
         self.decoder_embedding_layer = nn.Linear(self.output_dim, self.hidden_dim)
 
         self.encoder_layers = nn.ModuleList([HwEncoder(self.hidden_dim, self.n_encoder_heads, self.enc_ff_expension_ratio, 
