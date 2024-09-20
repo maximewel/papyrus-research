@@ -17,10 +17,13 @@ class ImageHelper():
         return x == Tokens.COORDINATE_SEQUENCE_EOS and y == Tokens.COORDINATE_SEQUENCE_EOS
 
     @classmethod
-    def create_image(cls, signal: list[int, int, bool]):
+    def create_image(cls, signal: list[int, int, bool], canvas_size: tuple = None):
         """Create the image associated with the given signal."""
-        max_h =  int(math.ceil(max(signal[:, 0])))
-        max_w = int(math.ceil(max(signal[:, 1])))
+        if canvas_size is None:
+            max_h =  int(math.ceil(max(signal[:, 0])))
+            max_w = int(math.ceil(max(signal[:, 1])))
+        else:
+            max_w, max_h = canvas_size
 
         canvas = np.ascontiguousarray(np.full((max_w + 1, max_h + 1), cls.DRAW_COLOR_BLACK), dtype=np.uint8)
 

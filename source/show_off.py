@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 folder_model_to_load = "2024-09-04 23-11-33"
 
-PATCHES_DIM = (8, 8)
+PATCHES_DIM = (4, 4)
 
 MIN_DIM_SHOWOFF = 40
 
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, display_stats=True, save_to_file=False, strokemode=StrokeMode.SUBSTROKES, 
                                normalize_coordinate_sequences=True, normalize_pixel_values=True)
         dataset.transform_to_batch()
-        
+
         nextIndex = 0
         while nextIndex < len(dataset):
             nextIndex += 1
@@ -78,7 +78,7 @@ if __name__ == "__main__":
                 while not stop_signal:
                     print(f"\rGenerating point {i}")
 
-                    res = model.forward(image.unsqueeze(0), padding.unsqueeze(0), working_signal.unsqueeze(0))
+                    res, eos_logit = model.forward(image.unsqueeze(0), padding.unsqueeze(0), working_signal.unsqueeze(0))
                     #Used to avoid OOM during autoregression
                     res = res.detach()
                     resultSignal = torch.vstack([resultSignal, res])
@@ -89,8 +89,13 @@ if __name__ == "__main__":
 
                     print(f"Got {res}, final signal last 5 \n{resultSignal[-STOP_CONDITION_IDENTICAL_OUTPUTS:]}")
 
+                    stop = stop_signal.item()
+                    if stop:
+                        print(f"Signal stopped")
+                        break
+
                     if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS):
-                        print(f"Early stop")
+                        print(f"Early stop - identical values loop detected in the last {STOP_CONDITION_IDENTICAL_OUTPUTS} outputs")
                         stop_signal = True
 
                     i += 1
@@ -115,7 +120,7 @@ if __name__ == "__main__":
             #Re-create images for both
             orig_image = dataset.images[nextIndex]
             orig_signal = ImageHelper.create_image(originalSignalAsInt.cpu().numpy())
-            final_image = ImageHelper.create_image(resultSignalAsInt.cpu().numpy())
+            final_image = ImageHelper.create_image(resultSignalAsInt.cpu().numpy(), orig_signal.shape)
 
             fig, axs = plt.subplots(1, 3, figsize=(10, 5))  # 1 row, 2 columns
 
