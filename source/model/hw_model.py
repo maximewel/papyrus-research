@@ -54,6 +54,7 @@ class HwTransformer(nn.Module):
     dec_ff_expension_ratio: int
     decoder_ff_activation_Function: FFActivationFunction
     autoregressive_target_seq_len: int
+    decoder_dim: int
 
     #Usefull components
     unfolder: torch.nn.Unfold
@@ -67,8 +68,8 @@ class HwTransformer(nn.Module):
                     use_prediction_token: bool, use_lstm: bool,
                     hidden_dim: int = 20, enc_dec_dropout_ratio: float = 0.0,
                     encoder_patch_dimension: tuple = (20, 20), fixed_size_image_dimension: tuple = (500, 200),
-                    n_encoder_layers: int = 2, n_encoder_heads: int = 4, enc_ff_expension_ratio: int = 4, encoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.RELU,
-                    n_decoder_layers: int = 4, n_decoder_heads: int = 4, dec_ff_expension_ratio: int = 4, decoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.RELU, autoregressive_target_seq_len: int = 50,
+                    n_encoder_layers: int = 2, n_encoder_heads: int = 4, enc_ff_expension_ratio: int = 2, encoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.LEAKYRELU,
+                    n_decoder_layers: int = 4, n_decoder_heads: int = 4, dec_ff_expension_ratio: int = 2, decoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.LEAKYRELU, autoregressive_target_seq_len: int = 50,
                     output_dim: int = 2) -> None:
         
         super().__init__()
@@ -98,9 +99,9 @@ class HwTransformer(nn.Module):
         self.autoregressive_target_seq_len = autoregressive_target_seq_len
 
         #Init all necessary components of the transformer
+        self.init_positional_embeddings()
         self.init_layers()
         self.init_unfolder()
-        self.init_positional_embeddings()
 
     def init_positional_embeddings(self):
         """Create the fixed positional embeddings for encoder and decoder input"""
@@ -116,12 +117,14 @@ class HwTransformer(nn.Module):
         self.encoder_positional_embeddings.requires_grad = False
         
         #The decoder positional embeddings are added to the target sequence embeddings
-        decoder_dim = self.autoregressive_target_seq_len
+        self.decoder_dim = self.autoregressive_target_seq_len
         if self.use_prediction_token:
-            decoder_dim += 1
+            logger.log(LogChannels.DIMENSIONS, f"Use prediction token, going from {self.decoder_dim} to {self.decoder_dim+1}")
+            self.decoder_dim += 1
         if self.use_lstm:
-            decoder_dim += 1
-        self.decoder_positional_embeddings = nn.Parameter(self.get_positional_embeddings(decoder_dim, self.hidden_dim))
+            logger.log(LogChannels.DIMENSIONS, f"Use LSTM, going from {self.decoder_dim} to {self.decoder_dim+1}")
+            self.decoder_dim += 1
+        self.decoder_positional_embeddings = nn.Parameter(self.get_positional_embeddings(self.decoder_dim, self.hidden_dim))
         self.decoder_positional_embeddings.requires_grad = False
     
     def patchify(self, images: torch.Tensor) -> torch.Tensor:
@@ -136,7 +139,10 @@ class HwTransformer(nn.Module):
         result = torch.ones(sequence_length, dimension)
         for i in range(sequence_length):
             for j in range(dimension):
-                result[i][j] = np.sin(i / (10000 ** (j / dimension))) if j % 2 == 0 else np.cos(i / (10000 ** ((j - 1) / dimension)))
+                if j % 2 == 0:
+                    result[i][j] = np.sin(i / (10000 ** (j / dimension))) 
+                else:
+                    result[i][j] = np.cos(i / (10000 ** ((j - 1) / dimension)))
         return result
 
     def init_layers(self):
@@ -144,22 +150,33 @@ class HwTransformer(nn.Module):
         #Compute the size of the patches
         p_w, p_h = self.encoder_patch_dimension
         patch_dim = int(p_w * p_h)
+
         self.encoder_embedding_layer = nn.Linear(patch_dim, self.hidden_dim)
+        torch.nn.init.xavier_uniform_(self.encoder_embedding_layer.weight)
+        if self.encoder_embedding_layer.bias is not None:
+            torch.nn.init.zeros_(self.encoder_embedding_layer.bias)
 
         #Decoder 'target sequences' input dimension is the decoder's output dimension
         self.decoder_embedding_layer = nn.Linear(self.output_dim, self.hidden_dim)
+        torch.nn.init.xavier_uniform_(self.decoder_embedding_layer.weight)
+        if self.decoder_embedding_layer.bias is not None:
+            torch.nn.init.zeros_(self.decoder_embedding_layer.bias)
 
         self.encoder_layers = nn.ModuleList([HwEncoder(self.hidden_dim, self.n_encoder_heads, self.enc_ff_expension_ratio, 
                                                        self.encoder_ff_activation_Function, self.enc_dec_dropout_ratio) for _ in range(self.n_encoder_layers)])        
 
-        self.decoder_layers = nn.ModuleList([HwDecoder(self.hidden_dim, self.n_decoder_heads, self.autoregressive_target_seq_len, 
-                                                       self.enc_dec_dropout_ratio, self.dec_ff_expension_ratio, self.decoder_ff_activation_Function) for _ in range(self.n_decoder_layers)])        
+        self.decoder_layers = nn.ModuleList([HwDecoder(self.hidden_dim, self.n_decoder_heads, self.decoder_dim, 
+                                                       self.enc_dec_dropout_ratio, self.dec_ff_expension_ratio, self.decoder_ff_activation_Function, use_prediction_token=self.use_prediction_token) for _ in range(self.n_decoder_layers)])        
 
         #Output MLP has the full flattened sequence embeddings as input and create an output token
-        self.output_mlp = nn.Linear(self.autoregressive_target_seq_len * self.hidden_dim , self.output_dim)
-
-        #Output signal indicating whether to end the signal on the next prediction. Result in a single value
-        self.stop_signal_output = nn.Linear(self.autoregressive_target_seq_len * self.hidden_dim, 1)
+        if self.use_prediction_token:
+            self.prediction_token = nn.Parameter(torch.rand(1, self.hidden_dim))
+            self.output_mlp = nn.Linear(self.hidden_dim, self.output_dim)
+            self.stop_signal_output = nn.Linear(self.hidden_dim, 1)
+        else:
+            self.output_mlp = nn.Linear(self.autoregressive_target_seq_len * self.hidden_dim , self.output_dim)
+            #Output signal indicating whether to end the signal on the next prediction. Result in a single value
+            self.stop_signal_output = nn.Linear(self.autoregressive_target_seq_len * self.hidden_dim, 1)
 
     def normalize_target_sequences(self, target_sequences: Tensor) -> tuple[Tensor, Tensor]:
         """Normalize the target sequences and generate the relevant padding mask
@@ -183,13 +200,22 @@ class HwTransformer(nn.Module):
             padded_targets[:, :target_len, :] = target_sequences
 
             #Created associated mask for the encoder, a 2D mask of batch, target_len that identifies the embeddings that we just padded
-            source_padding_mask = torch.ones((batch_size, self.autoregressive_target_seq_len), device=device)
-            source_padding_mask[:, :target_len] = 0
+            source_padding_mask = torch.ones((batch_size, self.decoder_dim), device=device)
+
+            #Carefull: First can be position
+            if self.use_prediction_token:
+                #Pred token
+                source_padding_mask[:, 0] = 0
+                #Sequence
+                source_padding_mask[:, 1:1+target_len] = 0
+            else:
+                source_padding_mask[:, :target_len] = 0
+                
             source_padding_mask = source_padding_mask.bool()
             return padded_targets.float(), source_padding_mask
 
         #In case target_len >= self.autoregressive_target_seq_len, no padding is involved
-        no_padding_mask = torch.zeros((batch_size, self.autoregressive_target_seq_len), device=device).bool()
+        no_padding_mask = torch.zeros((batch_size, self.decoder_dim), device=device).bool()
 
         #Rare case (once every training) where length is exactly right
         if target_len == self.autoregressive_target_seq_len:
@@ -234,8 +260,17 @@ class HwTransformer(nn.Module):
         ## Decoder ##
         #Normalize all target sequences to the autoregressive length (pad/clip), retrieve associated mask
         normalized_target_sequences, target_sequences_padding_masks = self.normalize_target_sequences(target_sequences)
+        logger.log(LogChannels.MASKS, f"Transformer - Target sequence padding: {target_sequences_padding_masks[0]}")
+
         #Pass through embedding layer
         embeding_target_sequences = self.decoder_embedding_layer(normalized_target_sequences)
+
+        # When using classification token, Add classification token to the tokens
+        if self.use_prediction_token:
+            #Add prediction token
+            embeding_target_sequences = torch.cat((self.prediction_token.expand(embeding_target_sequences.shape[0], 1, -1), embeding_target_sequences), dim=1)
+            logger.log(LogChannels.DIMENSIONS, f"Transformer - Embedded images dim with prediction token: {embeding_target_sequences.shape}")
+
         #Add positional embedding
         n = embeding_target_sequences.shape[0]
         decoder_positional_encoding = self.decoder_positional_embeddings.repeat(n, 1, 1)
@@ -247,16 +282,20 @@ class HwTransformer(nn.Module):
         for decoder in self.decoder_layers:
             decoder_out = decoder(encoder_output=encoder_out, target_sequence=decoder_out, 
                                   encoder_padding_mask=images_padding_masks, target_padding_mask=target_sequences_padding_masks)
+        logger.log(LogChannels.DEBUG, f"Transformer - LAST DIM: {decoder_out.shape}")
 
-        #logger.log(LogChannels.DEBUG, f"Transformer - LAST DIM: {decoder_out.shape}")
-
-        # Pass output through final layer to obtain correct length
-        # Reshape to [batch_size, seq_len * seq_dim] and send to final MLP
-        flattened_decoder_out = torch.flatten(decoder_out, start_dim=1)  
         #Final MLP will obtain a coordinate (x,y) for each batched input
-        final_output = self.output_mlp(flattened_decoder_out)
-
-        # Signal output takes the same flattened decoder output and transforms it into a boolean value
-        stop_signal_output = self.stop_signal_output(flattened_decoder_out)
+        if self.use_prediction_token:
+            #In the case of the prediction token, extract said token from decoder and do all computations on it
+            prediction_token = decoder_out[:, 0]
+            final_output = self.output_mlp(prediction_token)
+            stop_signal_output = self.stop_signal_output(prediction_token)
+        else:
+            # Otherwise, Pass output through final layer to obtain correct length
+            # Reshape to [batch_size, seq_len * seq_dim] and send to final MLP
+            flattened_decoder_out = torch.flatten(decoder_out, start_dim=1)
+            final_output = self.output_mlp(flattened_decoder_out)
+            # Signal output takes the same flattened decoder output and transforms it into a boolean value
+            stop_signal_output = self.stop_signal_output(flattened_decoder_out)
 
         return final_output, stop_signal_output

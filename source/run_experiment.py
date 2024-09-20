@@ -20,23 +20,26 @@ import torch
 ENCODER_HEADS = 6
 DECODER_HEADS = 6
 
-ENCODER_LAYERS = 6
-DECODER_LAYERS = 6
+ENCODER_LAYERS = 4
+DECODER_LAYERS = 4
 
 DROPOUT_RATIO = 0.1
 
-BATCH_SIZE = 32
-PATCHES_DIM = (6, 6)
-EMBEDDING_DIMS = 18
+BATCH_SIZE = 8
+PATCHES_DIM = (4, 4)
+EMBEDDING_DIMS = 12
 
 NORMALIZE_COORDS = True
 NORMALIZE_PIXEL_VALUES = True
+
+USE_PREDICTION_TOKEN = True
+USE_LSTM = False
 
 TRAIN_SIZE = 0.7
 TEST_SIZE = 0.2
 
 LR = 0.001
-N_EPOCHS = 1
+N_EPOCHS = 50
 
 from source.model.blocks.constants.device_helper import device
 
@@ -47,9 +50,12 @@ if __name__ == "__main__":
     #logger.add_log_channel(LogChannels.TRAINING)
     #logger.add_log_channel(LogChannels.DEBUG)
     #logger.add_log_channel(LogChannels.LOSSES)
-    logger.add_log_channel(LogChannels.INIT)
-    logger.add_log_channel(LogChannels.PARAMS)
-    logger.add_log_channel(LogChannels.DATA)
+    # logger.add_log_channel(LogChannels.INIT)
+    # logger.add_log_channel(LogChannels.PARAMS)
+    # logger.add_log_channel(LogChannels.DIMENSIONS)
+    # logger.add_log_channel(LogChannels.DATA)
+    # logger.add_log_channel(LogChannels.PADDING)
+    # logger.add_log_channel(LogChannels.MASKS)
 
     #print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
@@ -75,7 +81,7 @@ if __name__ == "__main__":
     logger.log(LogChannels.INIT, f"Loading {len(train_loader)} sub-strokes batches as train, {len(test_loader)} sub-strokes batches as test")
 
     #Init the transformer model
-    model = HwTransformer(False, False, hidden_dim=EMBEDDING_DIMS, enc_dec_dropout_ratio=DROPOUT_RATIO,
+    model = HwTransformer(use_prediction_token=USE_PREDICTION_TOKEN, use_lstm=USE_LSTM, hidden_dim=EMBEDDING_DIMS, enc_dec_dropout_ratio=DROPOUT_RATIO,
                           n_encoder_layers=ENCODER_LAYERS, n_encoder_heads=ENCODER_HEADS,
                           n_decoder_layers=DECODER_LAYERS, n_decoder_heads=DECODER_HEADS,
                           encoder_patch_dimension=PATCHES_DIM, fixed_size_image_dimension=dataset.target_image_shape)

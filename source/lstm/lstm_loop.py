@@ -8,9 +8,11 @@ from rich.progress import Progress, MofNCompleteColumn, TextColumn, TimeElapsedC
 from source.model.blocks.hw_lstm import HwLstm
 from source.logging.log import logger, LogChannels
 
+from source.model.blocks.constants.tokens import Tokens
+
 def do_training(model: HwLstm, train_loader: DataLoader, test_loader: DataLoader, device: torch.device):
     """Do the training and return the given model"""
-    N_EPOCHS = 20
+    N_EPOCHS = 100
     LR = 0.005
 
     model = model.to(device)

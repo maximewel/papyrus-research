@@ -13,6 +13,7 @@ from source.model.blocks.helper.patches import Patchificator
 from source.model.blocks.helper.tensor_utils import TensorUtils
 from source.model.blocks.constants.sequence_to_image import ImageHelper
 
+
 import torch
 
 class StrokeMode(Enum):
@@ -66,9 +67,10 @@ class BrushDataset(Dataset):
     target_image_shape: tuple
 
     window_size: int
+    lstm_forecast: int
 
     def __init__(self, brush_root, patches_dim: tuple, save_to_file: bool = True, strokemode: StrokeMode = StrokeMode.STROKES,
-                 normalize_pixel_values: bool = True, normalize_coordinate_sequences: bool = True, window_size: int = None):
+                 normalize_pixel_values: bool = True, normalize_coordinate_sequences: bool = True, window_size: int = None, lstm_forecast: int = None):
         self.brush_root = brush_root
         self.save_to_file = save_to_file
         self.strokemode = strokemode
@@ -77,6 +79,7 @@ class BrushDataset(Dataset):
         self.images = []
 
         self.coordinate_to_predict = None
+        self.lstm_forecast = lstm_forecast
 
         self.patches_dim = patches_dim
         self.window_size = window_size
@@ -218,16 +221,28 @@ class BrushDataset(Dataset):
             signal = self.signals_as_tensor[i]
             len_of_signal = TensorUtils.true_seq_lengths_of_tensor(signal)
 
-            for j in range(1, len_of_signal-1):
-                subsequence = signal[:j]
-                padding_length = signal_max_len - j
-                padding_tensor = padding_token.unsqueeze(0).repeat(padding_length, 1)
-                padded_subsequence = torch.cat((subsequence, padding_tensor), dim=0)
+            if self.lstm_forecast is not None:
+                if len_of_signal < self.lstm_forecast + 1:
+                    continue
+                for j in range(0, len_of_signal - self.lstm_forecast - 1):
+                    subsequence = signal[j : self.lstm_forecast + j]
 
-                signals_to_predict.append(padded_subsequence)
-                coordinates_to_predict.append(signal[j])
-                batchified_images.append(self.patchified_images[i])
-                batchified_masks.append(self.patches_padding_masks[i])
+                    signals_to_predict.append(subsequence)
+                    coordinates_to_predict.append(signal[self.lstm_forecast + j])
+                    batchified_images.append(self.patchified_images[i])
+                    batchified_masks.append(self.patches_padding_masks[i])
+            else:
+                for j in range(1, len_of_signal-1):
+                    subsequence = signal[:j]
+                    padding_length = signal_max_len - j
+                    padding_tensor = padding_token.unsqueeze(0).repeat(padding_length, 1)
+                    padded_subsequence = torch.cat((subsequence, padding_tensor), dim=0)
+
+                    signals_to_predict.append(padded_subsequence)
+                    coordinates_to_predict.append(signal[j])
+                    batchified_images.append(self.patchified_images[i])
+                    batchified_masks.append(self.patches_padding_masks[i])
+
 
         self.batchified_sequences = signals_to_predict
         self.batchified_patchified_images = batchified_images

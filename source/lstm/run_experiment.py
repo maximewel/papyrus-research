@@ -6,7 +6,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 sys.path.insert(0, project_root)
 
 from source.lstm.lstm_loop import do_training
-from source.data.brush.brush_dataset import BrushDataset, StrokeMode
+from source.data_management.brush.brush_dataset import BrushDataset, StrokeMode
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 
@@ -29,11 +29,12 @@ if __name__ == "__main__":
     #logger.add_log_channel(LogChannels.DEBUG)
     #logger.add_log_channel(LogChannels.LOSSES)
     logger.add_log_channel(LogChannels.INIT)
+    logger.add_log_channel(LogChannels.PARAMS)
 
     #print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
     # Init data
-    dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=(1,1), display_stats=True, save_to_file=False, strokemode=StrokeMode.SUBSTROKES)
+    dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=(1,1), save_to_file=False, strokemode=StrokeMode.SUBSTROKES, lstm_forecast=25)
     dataset.transform_to_batch()
 
     train_size = int(0.7 * len(dataset))
@@ -60,7 +61,7 @@ if __name__ == "__main__":
 
     logger.log(LogChannels.INIT, f"Loaded {len(dataset.signals_as_tensor)} sub-strokes")
     
-    #Start training
+    #Start trainings
     try:
         do_training(model, train_loader, test_loader, device)
     except Exception as e:

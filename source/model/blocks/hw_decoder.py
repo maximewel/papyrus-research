@@ -44,9 +44,10 @@ class HwDecoder(nn.Module):
 
     #Fixed causal mask preventing tokens attending to futur tokens
     causal_mask: Tensor
+    use_prediction_token: bool
 
     def __init__(self, hidden_dim: int, n_heads: int, target_sequence_length: int, dropout_ratio: float = 0.1, ff_expension_ratio: int = 2, 
-                 ff_activation_function: FFActivationFunction = FFActivationFunction.RELU, use_gen_token: bool = True) -> None:
+                 ff_activation_function: FFActivationFunction = FFActivationFunction.RELU, use_prediction_token: bool = False) -> None:
         super().__init__()
         
         self.hidden_dim = hidden_dim
@@ -54,6 +55,7 @@ class HwDecoder(nn.Module):
         self.dropout_ratio = dropout_ratio
         self.ff_expension_ratio = ff_expension_ratio
         self.ff_activation_function = ff_activation_function
+        self.use_prediction_token = use_prediction_token
 
         self.causal_mask = self.generate_causal_mask(target_sequence_length)
 
@@ -86,6 +88,11 @@ class HwDecoder(nn.Module):
         # Make it triangular with true on the upper part (mask subsequent tokens for each token generation)
         trig_matrix = torch.triu(torch.ones(target_seq_length, target_seq_length, device=device), diagonal=1)
 
+        #In case of prediction token, the prediction token itself should be allowed to attend to all other tokens. As
+        #It is placed first, put false (not masked) to the first row
+        if self.use_prediction_token:
+            trig_matrix[0, :] = 0
+
         # Reverse 1-1->0, 1-0->1 to obtain a mask with true on the lower triangular part, false on everything else
         # This effectively forms a mask that only allows each token to look to tokens before itself.
         causal_mask = trig_matrix.bool()
@@ -112,6 +119,7 @@ class HwDecoder(nn.Module):
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Dimensions output from encoder: {encoder_output.shape}")
         input_and_target_attention, _ = self.encoder_decoder_mha(msa_target_out, encoder_output, encoder_output, 
                                                                 key_padding_mask=encoder_padding_mask, need_weights=False)
+        
         input_and_target_attention = self.norm_layer_2(msa_target_out + self.dropout_layer(input_and_target_attention))
         logger.log(LogChannels.DIMENSIONS, f"Decoder - after cross-attention: {input_and_target_attention.shape}")
                 
