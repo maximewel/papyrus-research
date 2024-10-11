@@ -18,8 +18,7 @@ from source.model.blocks.helper.tensor_utils import TensorUtils
 import torch
 import matplotlib.pyplot as plt
 
-
-folder_model_to_load = "2024-09-04 23-11-33"
+folder_model_to_load = "2024-09-20 21-33-49"
 
 PATCHES_DIM = (4, 4)
 
@@ -35,15 +34,18 @@ tolerance = 0.00001
 def has_identical_last_values(tensor, n: int) -> bool:
     """Return whether the last N values of the tensor are exact"""
     last_rows = tensor[-n:, :]    
-    print(f"Last: {last_rows}")
     are_identical = torch.all(torch.abs(last_rows - last_rows[0, :]) < tolerance, dim=1).all()    
-    print(f"Are identical: {are_identical}")
     return are_identical.item()
 
+def image_from_result(resultSignal, mult_tensor):
+    resultSignalAsInt = (resultSignal * mult_tensor).int()
+    #Pad to obtain original third dimension, 'penup'
+    resultSignalAsInt = torch.nn.functional.pad(resultSignalAsInt, (0, 1))
+    result_image = ImageHelper.create_image(resultSignalAsInt.cpu().numpy(), orig_signal.shape)
+    return result_image
+
 if __name__ == "__main__":
-
         folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, folder_model_to_load)
-
         filepath = os.path.join(folderPath, MODEL_FILENAME)
 
         print(f"Loading model from: {filepath}")
@@ -53,9 +55,13 @@ if __name__ == "__main__":
         model.eval()
 
         # Init data
-        dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, display_stats=True, save_to_file=False, strokemode=StrokeMode.SUBSTROKES, 
+        dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, save_to_file=False, strokemode=StrokeMode.SUBSTROKES, 
                                normalize_coordinate_sequences=True, normalize_pixel_values=True)
         dataset.transform_to_batch()
+        
+        mult_tensor = torch.tensor(dataset.target_image_shape, dtype=int, device=device) if DENORMALIZE_SEQUENCES else 1
+        
+        plt.ion()
 
         nextIndex = 0
         while nextIndex < len(dataset):
@@ -63,14 +69,39 @@ if __name__ == "__main__":
             while len(dataset.signals[nextIndex]) < MIN_DIM_SHOWOFF:
                 nextIndex += 1
 
+            #Create image
+            fig, axs = plt.subplots(1, 3, figsize=(10, 5))  # 1 row, 2 columns
+            axs[0].set_title('Original image')
+            axs[0].axis('off')
+            axs[1].set_title('Reconstructed image from sig')
+            axs[1].axis('off')
+            axs[2].set_title('Predicted sequence from image, reconstructed')
+            axs[2].axis('off')
+            plt.show()
+
             image, padding, originalSignal = dataset.patchified_images[nextIndex], dataset.patches_padding_masks[nextIndex], dataset.signals_as_tensor[nextIndex]
             image, padding, originalSignal = image.to(device), padding.to(device), originalSignal.to(device)
             print(f"Selecting random signal n°{nextIndex} of length {originalSignal.shape[0]}")
+            fig.suptitle(f'Show-off on signal n°{nextIndex}, length {originalSignal.shape[0]}')
+
+            #Re-create images for both
+            orig_image = dataset.images[nextIndex]
+
+            sig_l = TensorUtils.true_seq_lengths_of_tensor(originalSignal)
+            originalSignalAsInt = (originalSignal[:sig_l] * mult_tensor).int()
+            originalSignalAsInt = torch.nn.functional.pad(originalSignalAsInt, (0, 1))
+            orig_signal = ImageHelper.create_image(originalSignalAsInt.cpu().numpy())
+
+            axs[0].imshow(orig_image, cmap='gray', vmin=0, vmax=255)
+            axs[1].imshow(orig_signal, cmap='gray', vmin=0, vmax=255)
 
             with torch.no_grad():
                 #Limit generation to avoid infinite autoregression
                 resultSignal = originalSignal[:1]
                 working_signal = originalSignal[:1]
+
+                result_image = image_from_result(resultSignal, mult_tensor)
+                result_display = axs[2].imshow(result_image, cmap='gray', vmin=0, vmax=255)
 
                 stop_signal = False
 
@@ -87,12 +118,16 @@ if __name__ == "__main__":
                     else:
                         working_signal = torch.vstack([working_signal, res])
 
-                    print(f"Got {res}, final signal last 5 \n{resultSignal[-STOP_CONDITION_IDENTICAL_OUTPUTS:]}")
+                    result_image = image_from_result(resultSignal, mult_tensor)
+                    result_display.set_data(result_image)
+                    fig.canvas.draw()  # Redraw the canvas
+                    fig.canvas.flush_events()  # Flush any GUI events
 
-                    stop = stop_signal.item()
-                    if stop:
-                        print(f"Signal stopped")
-                        break
+                    # Apply sigmoid to get the stop probability, convert using standard 
+                    stop_probability = torch.sigmoid(eos_logit)
+                    print(f"stop proba: {stop_probability}")
+                    # Check if we should stop
+                    stop_signal &= stop_probability >= 0.5
 
                     if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS):
                         print(f"Early stop - identical values loop detected in the last {STOP_CONDITION_IDENTICAL_OUTPUTS} outputs")
@@ -101,46 +136,9 @@ if __name__ == "__main__":
                     i += 1
 
             print(f"Got final signal of length {resultSignal.shape[0]}")
-
-            mult_tensor = torch.tensor(dataset.target_image_shape, dtype=int, device=resultSignal.device) if DENORMALIZE_SEQUENCES else 1
-            resultSignalAsInt = (resultSignal * mult_tensor).int()
-            sig_l = TensorUtils.true_seq_lengths_of_tensor(originalSignal)
-            originalSignalAsInt = (originalSignal[:sig_l] * mult_tensor).int()
-
-            print(f"Original signal first 10 cord : {originalSignal[:10]}")
-            print(f"Original signal first 10 cord as int : {originalSignalAsInt[:10]}")
-
-            print(f"Res signal first 10 cord : {resultSignal[:10]}")
-            print(f"Tes signal first 10 cord as int : {resultSignalAsInt[:10]}")
-
-            #Pad to obtain original third dimension, 'penup'
-            resultSignalAsInt = torch.nn.functional.pad(resultSignalAsInt, (0, 1))
-            originalSignalAsInt = torch.nn.functional.pad(originalSignalAsInt, (0, 1))
-
-            #Re-create images for both
-            orig_image = dataset.images[nextIndex]
-            orig_signal = ImageHelper.create_image(originalSignalAsInt.cpu().numpy())
-            final_image = ImageHelper.create_image(resultSignalAsInt.cpu().numpy(), orig_signal.shape)
-
-            fig, axs = plt.subplots(1, 3, figsize=(10, 5))  # 1 row, 2 columns
-
-            fig.suptitle(f'Show-off on signal n°{nextIndex}, length {originalSignal.shape[0]}')
-
-            axs[0].imshow(orig_image, cmap='gray', vmin=0, vmax=255)
-            axs[0].set_title('Original image')
-            axs[0].axis('off')
-
-            axs[1].imshow(orig_signal, cmap='gray', vmin=0, vmax=255)
-            axs[1].set_title('Reconstructed image from sig')
-            axs[1].axis('off')
-
-            axs[2].imshow(final_image, cmap='gray', vmin=0, vmax=255)
-            axs[2].set_title('Predicted sequence from image, reconstructed')
-            axs[2].axis('off')
-
-            plt.show(block=False)
-            entry = input("Press to next, enter anything stop:")
             plt.close(fig)
+            entry = input("Press to next, enter anything stop:")
 
             if(entry):
+                plt.ioff()
                 break

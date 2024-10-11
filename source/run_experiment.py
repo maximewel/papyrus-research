@@ -17,11 +17,11 @@ from source.model.blocks.constants.files import *
 
 import torch
 
-ENCODER_HEADS = 6
-DECODER_HEADS = 6
+ENCODER_HEADS = 2
+DECODER_HEADS = 2
 
-ENCODER_LAYERS = 4
-DECODER_LAYERS = 4
+ENCODER_LAYERS = 6
+DECODER_LAYERS = 6
 
 DROPOUT_RATIO = 0.1
 
@@ -35,11 +35,11 @@ NORMALIZE_PIXEL_VALUES = True
 USE_PREDICTION_TOKEN = True
 USE_LSTM = False
 
-TRAIN_SIZE = 0.7
-TEST_SIZE = 0.2
+TRAIN_SIZE = 0.2
+TEST_SIZE = 0.1
 
 LR = 0.001
-N_EPOCHS = 50
+N_EPOCHS = 20
 
 from source.model.blocks.constants.device_helper import device
 
