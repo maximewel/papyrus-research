@@ -7,7 +7,7 @@ sys.path.insert(0, project_root)
 from source.model.blocks.constants.files import *
 
 from source.model.hw_model import HwTransformer
-from source.data_management.brush.brush_dataset import BrushDataset, StrokeMode
+from source.data_management.brush.brush_dataset import BrushDataset
 from source.model.hw_model import HwTransformer
 from source.model.blocks.constants.files import *
 from source.model.blocks.constants.sequence_to_image import ImageHelper
@@ -17,18 +17,19 @@ from source.model.blocks.helper.tensor_utils import TensorUtils
 
 import torch
 import matplotlib.pyplot as plt
+from time import sleep
 
-folder_model_to_load = "2024-09-20 21-33-49"
+folder_model_to_load = "2024-10-22 20-59-40"
 
 PATCHES_DIM = (4, 4)
 
-MIN_DIM_SHOWOFF = 40
+MIN_DIM_SHOWOFF = 50
 
-STOP_CONDITION_IDENTICAL_OUTPUTS = 10
+STOP_CONDITION_IDENTICAL_OUTPUTS = 5
 
 DENORMALIZE_SEQUENCES = True
 
-REPLACE_WITH_GOLDEN = True
+REPLACE_WITH_GOLDEN = False
 
 tolerance = 0.00001
 def has_identical_last_values(tensor, n: int) -> bool:
@@ -49,13 +50,13 @@ if __name__ == "__main__":
         filepath = os.path.join(folderPath, MODEL_FILENAME)
 
         print(f"Loading model from: {filepath}")
-
+        
         model: HwTransformer = torch.load(filepath)
 
         model.eval()
 
         # Init data
-        dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, save_to_file=False, strokemode=StrokeMode.SUBSTROKES, 
+        dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, save_to_file=False, strokemode=True, 
                                normalize_coordinate_sequences=True, normalize_pixel_values=True)
         dataset.transform_to_batch()
         
@@ -113,6 +114,7 @@ if __name__ == "__main__":
                     #Used to avoid OOM during autoregression
                     res = res.detach()
                     resultSignal = torch.vstack([resultSignal, res])
+                    print(f"Last 5: {resultSignal[:-5]}")
                     if REPLACE_WITH_GOLDEN:
                         working_signal = torch.vstack([working_signal, originalSignal[i+1]])
                     else:
@@ -127,7 +129,7 @@ if __name__ == "__main__":
                     stop_probability = torch.sigmoid(eos_logit)
                     print(f"stop proba: {stop_probability}")
                     # Check if we should stop
-                    stop_signal &= stop_probability >= 0.5
+                    stop_signal |= stop_probability >= 0.5
 
                     if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS):
                         print(f"Early stop - identical values loop detected in the last {STOP_CONDITION_IDENTICAL_OUTPUTS} outputs")
@@ -135,9 +137,11 @@ if __name__ == "__main__":
 
                     i += 1
 
+                    stop_signal |= i > 500
+
             print(f"Got final signal of length {resultSignal.shape[0]}")
-            plt.close(fig)
             entry = input("Press to next, enter anything stop:")
+            plt.close(fig)
 
             if(entry):
                 plt.ioff()

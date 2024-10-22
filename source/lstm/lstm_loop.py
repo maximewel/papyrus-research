@@ -12,8 +12,8 @@ from source.model.blocks.constants.tokens import Tokens
 
 def do_training(model: HwLstm, train_loader: DataLoader, test_loader: DataLoader, device: torch.device):
     """Do the training and return the given model"""
-    N_EPOCHS = 100
-    LR = 0.005
+    N_EPOCHS = 50
+    LR = 0.001
 
     model = model.to(device)
 
@@ -90,6 +90,7 @@ def do_training(model: HwLstm, train_loader: DataLoader, test_loader: DataLoader
             test_losses.append(test_loss)
 
         import matplotlib.pyplot as plt
+        plt.title(f'Training of a LSTM model on {N_EPOCHS} epochs')
         plt.plot(train_losses, 'g', label="Train loss")
         plt.plot(test_losses, 'b', label="Test loss")
         plt.legend()

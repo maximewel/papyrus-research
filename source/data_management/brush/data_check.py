@@ -97,7 +97,7 @@ def test_dataset():
 def test_lstm_dataset():
         # Init data
     dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=(1,1), save_to_file=False, strokemode=StrokeMode.SUBSTROKES, normalize_coordinate_sequences=False, 
-                        lstm_forecast=25)
+                        lstm_forecast_length=25)
     dataset.transform_to_batch()
 
     unshuffled_loader = DataLoader(dataset, shuffle=False, batch_size=BATCH_SIZE)
@@ -140,4 +140,4 @@ def test_lstm_dataset():
 
 if __name__ == "__main__":
     test_dataset()
-    #est_lstm_dataset()
+    #test_lstm_dataset()

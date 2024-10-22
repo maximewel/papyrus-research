@@ -1,6 +1,6 @@
 """Contains the train and test loops for the model(s)"""
 import torch
-from torch.nn import L1Loss, BCEWithLogitsLoss
+from torch.nn import MSELoss, BCEWithLogitsLoss
 from torch.optim import AdamW, Adam
 from torch.utils.data import DataLoader
 from rich.progress import Progress, MofNCompleteColumn, TextColumn, TimeElapsedColumn, BarColumn
@@ -8,6 +8,7 @@ from rich.progress import Progress, MofNCompleteColumn, TextColumn, TimeElapsedC
 from source.model.hw_model import HwTransformer
 from source.logging.log import logger, LogChannels
 from source.model.blocks.constants.tokens import Tokens
+from source.criterions.euclidian_distance import EuclideanDistanceLoss
 
 def data_from_batch(batch, device):
     #Get images, coord sequences as batch
@@ -36,8 +37,9 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
 
         # Training loop
         optimizer = Adam(model.parameters(), lr=lr)
-        coord_criterion = L1Loss(reduction='sum')
-        eos_criterion = BCEWithLogitsLoss()
+        coord_criterion = EuclideanDistanceLoss()
+        #SUM because MEAN will mean EOS is ignored, as there are almost no stop point (1/signal) compared to regular coords
+        eos_criterion = BCEWithLogitsLoss(reduction='sum')
 
         epoch_progress_bar = progress.add_task("[blue]Epoch...", total=n_epochs)
         batch_progress_bar = progress.add_task("[green]Batch...", total=len(train_loader))
@@ -68,7 +70,7 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
 
                 optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=100.0)
+                #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=100.0)
                 optimizer.step()
 
                 # Check for vanishing or exploding gradients. This helps detecting two well-known issues with gradiants.
@@ -83,7 +85,7 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                 progress.advance(batch_progress_bar)
 
                 del images, masks, sequences, labels, y_pred_finished, loss
-                torch.cuda.empty_cache() if torch.cuda.is_available() else None
+                #torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
             progress.advance(epoch_progress_bar)
 
