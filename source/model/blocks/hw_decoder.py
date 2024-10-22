@@ -110,21 +110,25 @@ class HwDecoder(nn.Module):
             target_padding_mask:    Padding mask for the target sequence, flagging uninteresting coordinates
         """
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Dimensions in decoder input (target sequence): {target_sequence.shape}")
-
-        msa_target_out, _ = self.target_sequence_mhsa(target_sequence, target_sequence, target_sequence,
+        target_sequence_norm = self.norm_layer_1(target_sequence)
+        msa_target_out, _ = self.target_sequence_mhsa(target_sequence_norm, target_sequence_norm, target_sequence_norm,
                                                       key_padding_mask=target_padding_mask, attn_mask=self.causal_mask, need_weights=False)
-        msa_target_out = self.norm_layer_1(target_sequence + self.dropout_layer(msa_target_out))
+        msa_target_out = self.dropout_layer(msa_target_out) + target_sequence
+
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Dimensions output from self-attention: {msa_target_out.shape}")
 
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Dimensions output from encoder: {encoder_output.shape}")
-        input_and_target_attention, _ = self.encoder_decoder_mha(msa_target_out, encoder_output, encoder_output, 
+        msa_target_norm = self.norm_layer_2(msa_target_out)
+        input_and_target_attention, _ = self.encoder_decoder_mha(msa_target_norm, encoder_output, encoder_output, 
                                                                 key_padding_mask=encoder_padding_mask, need_weights=False)
         
-        input_and_target_attention = self.norm_layer_2(msa_target_out + self.dropout_layer(input_and_target_attention))
+        input_and_target_attention = self.dropout_layer(input_and_target_attention) + msa_target_out
+
         logger.log(LogChannels.DIMENSIONS, f"Decoder - after cross-attention: {input_and_target_attention.shape}")
                 
-        ffn_output = self.feed_forward(input_and_target_attention)
-        ffn_output = self.norm_layer_3(input_and_target_attention + self.dropout_layer(ffn_output))
+        input_and_target_attention_norm = self.norm_layer_3(input_and_target_attention)
+        ffn_output = self.feed_forward(input_and_target_attention_norm)
+        ffn_output = self.dropout_layer(ffn_output) + input_and_target_attention
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Final output dimension after ffn: {ffn_output.shape}")
 
         return ffn_output

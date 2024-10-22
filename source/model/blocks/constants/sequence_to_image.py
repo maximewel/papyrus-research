@@ -29,9 +29,11 @@ class ImageHelper():
         #as we start from point 0.
         draw_current_stroke = False
         for x, y, eos in signal:
-
-            if draw_current_stroke and not cls.is_eos_token(x, y):
+            if cls.is_eos_token(x, y):
+                break
+            if draw_current_stroke:
                 cv2.line(canvas, (last_x, last_y), (x, y), cls.DRAW_COLOR_WHITE, cls.DRAW_COLOR_SIZE) 
+                
             last_x, last_y, draw_current_stroke = x, y, not eos
         
         return canvas

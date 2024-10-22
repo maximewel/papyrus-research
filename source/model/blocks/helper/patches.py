@@ -46,12 +46,13 @@ class Patchificator():
                 - Padding masks: An homogeneous tensor, dims = [b, n_patches], that maps the padding patches for each padded image. A 
                     padding patch is a patch where every pixel was padded and is therefore to discard during attention.
         """
-        batch_size = len(images)
+        total_data_size = len(images)
         W, H = self.fixed_image_dim
 
         # Initialize padded images and padding masks
-        padded_images = torch.zeros((batch_size, 1, W, H), dtype=float)
-        padding_masks = torch.ones((batch_size, 1, W, H)) # correspond to channel, assume 1 (would be easy to adapt to multiple channels)
+        logger.log(LogChannels.DIMENSIONS, f"Creating padding images tensors of shape {total_data_size}, {1}, {W}, {H}")
+        padded_images = torch.zeros((total_data_size, 1, W, H), dtype=float)
+        padding_masks = torch.ones((total_data_size, 1, W, H)) # correspond to channel, assume 1 (would be easy to adapt to multiple channels)
         
         # Copy original images into the padded tensor and create the padding mask
         for i in range(len(images)):
