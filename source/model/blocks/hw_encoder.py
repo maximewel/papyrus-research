@@ -75,15 +75,20 @@ class HwEncoder(nn.Module):
         """
         ## P1 ##
         #Do MHA over input
-        msa_out, _ = self.mhsa(x, x, x, key_padding_mask=source_padding_mask, need_weights=False)
+        #Pre-layer norm before msa
+        x_norm = self.norm_layer_1(x) 
+        msa_out, _ = self.mhsa(x_norm, x_norm, x_norm, key_padding_mask=source_padding_mask, need_weights=False)
         msa_out = self.dropout_layer(msa_out)
-        #Add & norm
-        x = self.norm_layer_1(x + msa_out)
+
+        #Add
+        x = x + msa_out
 
         ## P2 ##
         #Do feed forward over input
-        ff_out = self.feed_forward(x)
+        # Pre-LayerNorm before feedforward
+        x_norm = self.norm_layer_2(x)  
+        ff_out = self.feed_forward(x_norm)
         ff_out = self.dropout_layer(ff_out)
-        x = self.norm_layer_2(x + ff_out)
+        x = x + ff_out 
 
         return x

@@ -7,6 +7,7 @@ sys.path.insert(0, project_root)
 
 from source.lstm.lstm_loop import do_training
 from source.data_management.brush.brush_dataset import BrushDataset, StrokeMode
+from source.data_management.unipen.unipen_dataset import UnipenDataset
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 
@@ -30,11 +31,14 @@ if __name__ == "__main__":
     #logger.add_log_channel(LogChannels.LOSSES)
     logger.add_log_channel(LogChannels.INIT)
     logger.add_log_channel(LogChannels.PARAMS)
+    logger.add_log_channel(LogChannels.DATA)
 
     #print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
     # Init data
-    dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=(1,1), save_to_file=False, strokemode=StrokeMode.SUBSTROKES, lstm_forecast=25)
+    #dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=(1,1), save_to_file=False, lstm_forecast_length=25)
+    dataset = UnipenDataset(unipen_root=UNIPEN_ROOT, patches_dim=(1,1), lstm_forecast_length=25)
+    
     dataset.transform_to_batch()
 
     train_size = int(0.7 * len(dataset))
