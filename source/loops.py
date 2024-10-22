@@ -54,8 +54,8 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
 
                 # Iterate over the sequences untill all are over. 
                 y_pred_finished, eos_output = model.forward(images, masks, sequences)
-                asStr = [f"|{labels[i].cpu().detach().numpy()}-{y_pred_finished[i].cpu().detach().numpy()}|" for i in range(len(y_pred_finished))]
-                logger.log(LogChannels.LOSSES, f"labels-pred ={' | '.join(asStr)}")
+                asStr = [f"{labels[i].cpu().detach().numpy()}-{y_pred_finished[i].cpu().detach().numpy()}" for i in range(len(y_pred_finished))]
+                logger.log(LogChannels.LOSSES, f"labels-pred =|{' | '.join(asStr)}|")
 
                 coord_loss = coord_criterion(y_pred_finished, labels)
                 eos_loss = eos_criterion(eos_output, stop_labels)
