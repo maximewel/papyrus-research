@@ -13,6 +13,7 @@ class LogChannels(Enum):
     DEBUG = auto()
     PARAMS = auto()
     LOSSES = auto()
+    LOSS_DETAILED = auto()
 
 class Logger():
 

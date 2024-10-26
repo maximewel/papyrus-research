@@ -6,12 +6,13 @@ uniformily processed HW data.
 
 from torch.utils.data import Dataset
 from source.model.blocks.helper.patches import Patchificator
-from source.model.blocks.helper.tensor_utils import TensorUtils
 import torch
 import numpy as np
 from source.model.blocks.constants.tokens import Tokens
 from source.logging.log import logger, LogChannels
 from source.model.blocks.constants.sequence_to_image import ImageHelper
+from torch.nn.utils.rnn import pack_sequence, PackedSequence
+from torch import Tensor
 
 from random import shuffle
 
@@ -42,16 +43,16 @@ class HandWrittingDataset(Dataset, ABC):
     target_image_shape: tuple
 
     window_size: int
-    lstm_forecast_length: int
+    lstm_mode: bool
 
     samples_to_take: int|float
 
     def __init__(self, patches_dim: tuple, normalize_pixel_values: bool = True, normalize_coordinate_sequences: bool = True, 
-                 window_size: int = None, lstm_forecast_length: int = None, samples_to_take: int | float = None):
+                 window_size: int = None, lstm_mode: bool = False, samples_to_take: int | float = None):
         super().__init__()
 
         self.coordinate_to_predict = None
-        self.lstm_forecast_length = lstm_forecast_length
+        self.lstm_mode = lstm_mode
         self.samples_to_take = samples_to_take
 
         self.patches_dim = patches_dim
@@ -116,11 +117,65 @@ class HandWrittingDataset(Dataset, ABC):
         if idx >= len(self):
             raise Exception(f"Invalid index: Dataset of size {len(self)} has no item at index {idx}")
         
-        image, mask, sequence = self.batchified_patchified_images[idx], self.batchified_patches_padding_masks[idx], self.batchified_sequences[idx]
+        sequence = self.batchified_sequences[idx]
         label = self.coordinate_to_predict[idx]
         
-        return (image, mask, sequence), label
+        if self.lstm_mode:
+            return sequence, label
+        
+        image = self.batchified_patchified_images[idx]
+        mask = self.batchified_patches_padding_masks[idx]
+        
+        return image, mask, sequence, label
     
+    @staticmethod
+    def collate_batch_transformer(batch_data: list[tuple[Tensor, Tensor, Tensor, Tensor]]) -> tuple[tuple[Tensor, Tensor], PackedSequence, Tensor]:
+        """
+            Collate a HW batch into merged return values
+            Use as collate_fn in datasets using HW datasets
+            Responds to the data return in __getitem__
+            Use in tranformer mode
+
+            Returnss
+            -----
+                (Tensor, Tensor), PackedSequence, Tensor
+                    * (Images, Paddings) as Tuple[Tensor, Tensor]: Get the images, paddings as a normalized vector of shape target_shape
+                    * Sequences as PackedSequence
+                    * Tensor: Labels as a tensor
+        """
+        images, masks, sequences, labels = zip(*batch_data)
+        return torch.stack(images), torch.stack(masks), pack_sequence(sequences, enforce_sorted=False), torch.stack(labels)
+    
+    @staticmethod
+    def collate_batch_lstm(batch_data: list[tuple[Tensor, Tensor]]) -> tuple[PackedSequence, Tensor]:
+        """
+            Collate a HW batch into merged return values
+            Use as collate_fn in datasets using HW datasets
+            Responds to the data return in __getitem__
+            Use in LSTM mode
+
+            Returnss
+            -----
+                PackedSequence, Tensor
+                    * Sequences as PackedSequence
+                    * Tensor: Labels as a tensor
+        """
+        sequences, labels = zip(*batch_data)
+        
+        return pack_sequence(sequences, enforce_sorted=False), torch.stack(labels)
+    
+    def get_collate_function(self) -> callable:
+        """
+        Get the collate function adapted to this dataset
+
+        Returns
+        -----
+            The adapted collate function
+        """
+        if self.lstm_mode:
+            return self.collate_batch_lstm
+        else:
+            return self.collate_batch_transformer
     
     ### Implementation of methods to go from numpy signals to workable tensors ###
     def transform_to_batch(self):
@@ -152,21 +207,18 @@ class HandWrittingDataset(Dataset, ABC):
         """"
         Transform all inhomogeneous into an homogeneous sequence by adding an EOS token as well as padding to the maximum length sequence
         """
-        sequences_len = [len(signal) for signal in self.signals]
-        max_sequences_len = np.max(sequences_len)  + 1 #+1: Used to account for the added EOS on the lengthiest signal
+        self.signals_as_tensor = []
 
-        self.signals_as_tensor = torch.full((len(self.signals), max_sequences_len, 2), Tokens.COORDINATE_SEQUENCE_PADDING_TOKEN.value).float()
-
-        logger.log(LogChannels.DATA, f"Converting {len(self.signals)} signals into a tensor of {self.signals_as_tensor.shape}")
+        logger.log(LogChannels.DATA, f"Converting {len(self.signals)} into tensors")
         
         EOS_TOKEN = [Tokens.COORDINATE_SEQUENCE_EOS.value for _ in range(2)]
 
         for i in range(len(self.signals)):
             signal_to_copy = self.signals[i][:, :2].astype(float)
             if self.normalize_coordinate_sequences:
-                signal_to_copy /= self.target_image_shape
+                signal_to_copy /= (self.target_image_shape[1], self.target_image_shape[0])
             signal_to_copy = np.vstack([signal_to_copy, EOS_TOKEN])
-            self.signals_as_tensor[i, :len(signal_to_copy), :] = torch.FloatTensor(signal_to_copy[:, :2])
+            self.signals_as_tensor.append(signal_to_copy)
 
     def extract_all_predictable_from_tensor(self) -> torch.Tensor:
         """Extract all the predictable values from a tensor
@@ -178,35 +230,26 @@ class HandWrittingDataset(Dataset, ABC):
         batchified_masks = []
 
         #For a signal of size i, as we always give the first 
-        n_points_to_predict = sum([TensorUtils.true_seq_lengths_of_tensor(signal)-1 for signal in self.signals_as_tensor])
-        logger.log(LogChannels.DATA, f"Computing signals: from {self.signals_as_tensor.shape[0]} signals, we have {n_points_to_predict} points to predict")
+        #n_points_to_predict = sum([TensorUtils.true_seq_lengths_of_tensor(signal)-1 for signal in self.signals_as_tensor])
+        n_points_to_predict = sum([len(signal) for signal in self.signals_as_tensor])
+        logger.log(LogChannels.DATA, f"Computing signals: from {len(self.signals_as_tensor)} signals, we have {n_points_to_predict} points to predict")
 
-        padding_token = torch.FloatTensor([Tokens.COORDINATE_SEQUENCE_PADDING_TOKEN.value, Tokens.COORDINATE_SEQUENCE_PADDING_TOKEN.value], device='cpu')
-        
-        number_of_signals, signal_max_len, _ = self.signals_as_tensor.shape
+        self.non_homogeneous_signal_list = []
+
+        number_of_signals = len(self.signals_as_tensor)
         for i in range(number_of_signals):
             signal = self.signals_as_tensor[i]
-            len_of_signal = TensorUtils.true_seq_lengths_of_tensor(signal)
+            len_of_signal = signal.shape[0]
 
-            if self.lstm_forecast_length is not None:
-                if len_of_signal < self.lstm_forecast_length + 1:
-                    continue
-                for j in range(0, len_of_signal - self.lstm_forecast_length - 1):
-                    subsequence = signal[j : self.lstm_forecast_length + j]
+            for j in range(1, len_of_signal):
+                #J Starts at 1 as we expect to always have at least 1 data (The starting point) to predict
+                subsequence = torch.Tensor(signal[:j])
+                label = torch.Tensor(signal[j])
+                signals_to_predict.append(subsequence)
+                coordinates_to_predict.append(label)
 
-                    signals_to_predict.append(subsequence)
-                    coordinates_to_predict.append(signal[self.lstm_forecast_length + j])
-                    batchified_images.append(self.patchified_images[i])
-                    batchified_masks.append(self.patches_padding_masks[i])
-            else:
-                for j in range(1, len_of_signal-1):
-                    subsequence = signal[:j]
-                    padding_length = signal_max_len - j
-                    padding_tensor = padding_token.unsqueeze(0).repeat(padding_length, 1)
-                    padded_subsequence = torch.cat((subsequence, padding_tensor), dim=0)
-
-                    signals_to_predict.append(padded_subsequence)
-                    coordinates_to_predict.append(signal[j])
+                if not self.lstm_mode:
+                    #If not LSTM, append the patchified image and mask's reference to the list
                     batchified_images.append(self.patchified_images[i])
                     batchified_masks.append(self.patches_padding_masks[i])
 

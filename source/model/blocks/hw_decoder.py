@@ -45,9 +45,10 @@ class HwDecoder(nn.Module):
     #Fixed causal mask preventing tokens attending to futur tokens
     causal_mask: Tensor
     use_prediction_token: bool
+    use_lstm: bool
 
     def __init__(self, hidden_dim: int, n_heads: int, target_sequence_length: int, dropout_ratio: float = 0.1, ff_expension_ratio: int = 2, 
-                 ff_activation_function: FFActivationFunction = FFActivationFunction.RELU, use_prediction_token: bool = False) -> None:
+                 ff_activation_function: FFActivationFunction = FFActivationFunction.RELU, use_prediction_token: bool = False, use_lstm: bool = False) -> None:
         super().__init__()
         
         self.hidden_dim = hidden_dim
@@ -56,6 +57,7 @@ class HwDecoder(nn.Module):
         self.ff_expension_ratio = ff_expension_ratio
         self.ff_activation_function = ff_activation_function
         self.use_prediction_token = use_prediction_token
+        self.use_lstm = use_lstm
 
         self.causal_mask = self.generate_causal_mask(target_sequence_length)
 
@@ -92,11 +94,16 @@ class HwDecoder(nn.Module):
         #It is placed first, put false (not masked) to the first row
         if self.use_prediction_token:
             trig_matrix[0, :] = 0
+        
+        #In case of LSTM token, the LSTM token should be allowed to attend to all other tokens. Is it placed last.
+        if self.use_prediction_token:
+            trig_matrix[:, -1] = 0
 
         # Reverse 1-1->0, 1-0->1 to obtain a mask with true on the lower triangular part, false on everything else
         # This effectively forms a mask that only allows each token to look to tokens before itself.
         causal_mask = trig_matrix.bool()
-        logger.log(LogChannels.MASKS, f"Causal mask: {causal_mask}")
+        logger.log(LogChannels.MASKS, f"Causal mask: {causal_mask.shape}\n{causal_mask}\n")
+        print(f"Causal mask:\n{causal_mask}")
         return causal_mask
     
     def forward(self, encoder_output: Tensor, target_sequence: Tensor, encoder_padding_mask: Tensor, target_padding_mask: Tensor):

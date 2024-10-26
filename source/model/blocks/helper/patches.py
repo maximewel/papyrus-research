@@ -11,7 +11,7 @@ class Patchificator():
     unfolder: torch.nn.Unfold
     fixed_image_dim: tuple
 
-    IMG_MAX_VALUE = 255
+    IMG_MAX_VALUE = 1
 
     def __init__(self, patch_dimension: tuple, fixed_image_dim: tuple) -> None:
         """
