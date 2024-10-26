@@ -2,17 +2,21 @@ import math
 import numpy as np
 import cv2
 
-from source.model.blocks.constants.tokens import Tokens
-
 class ImageHelper():
 
-    DRAW_COLOR_WHITE = 0
-    DRAW_COLOR_BLACK = 255
+    DRAW_COLOR_WHITE = 1
+    DRAW_COLOR_BLACK = 0
     DRAW_COLOR_SIZE = 1
+    PADDING_RIGHT_BOTTOM = 2
 
     @classmethod
     def is_eos_token(cls, x, y):
         return x < 0 and y < 0
+    
+    @classmethod
+    def revert_image(cls, image: np.ndarray):
+        """Revert an image black/white values - can be useful for display"""
+        return cls.DRAW_COLOR_WHITE - image
 
     @classmethod
     def create_image(cls, signal: list[int, int, bool], canvas_size: tuple = None):
@@ -23,7 +27,7 @@ class ImageHelper():
         else:
             max_w, max_h = canvas_size
 
-        canvas = np.ascontiguousarray(np.full((max_w + 1, max_h + 1), cls.DRAW_COLOR_BLACK), dtype=np.uint8)
+        canvas = np.ascontiguousarray(np.full((max_w + ImageHelper.PADDING_RIGHT_BOTTOM, max_h + ImageHelper.PADDING_RIGHT_BOTTOM), cls.DRAW_COLOR_BLACK), dtype=np.uint8)
 
         #Draw lines from point (t-1) to current point (t) IFF the pen was not up. start with penup
         #as we start from point 0.

@@ -18,10 +18,10 @@ class StrokedHandwrittingDataset(HandWrittingDataset):
     separate_strokes: bool
 
     def __init__(self, patches_dim, separate_strokes: bool = True, normalize_pixel_values = True, normalize_coordinate_sequences = True, 
-                 window_size = None, lstm_forecast_length = None, samples_to_take: int|float = None):
+                 window_size = None, lstm_mode: bool = None, samples_to_take: int|float = None):
         self.separate_strokes = separate_strokes
         
-        super().__init__(patches_dim, normalize_pixel_values, normalize_coordinate_sequences, window_size, lstm_forecast_length, samples_to_take)
+        super().__init__(patches_dim, normalize_pixel_values, normalize_coordinate_sequences, window_size, lstm_mode, samples_to_take)
 
     def apply_all_preprocess_to_signals(self):
         """
@@ -33,6 +33,11 @@ class StrokedHandwrittingDataset(HandWrittingDataset):
         logger.log(LogChannels.DATA, f"Separating strokes...")
         self.apply_stroke_separation_to_signals()
         logger.log(LogChannels.DATA, f"Strokes done. Number of signals: {len(self.signals)}")
+
+        #Apply artificual cuts to signal
+        logger.log(LogChannels.DATA, f"Removing false start...")
+        self.remove_false_start()
+        logger.log(LogChannels.DATA, f"False start removed")
 
         logger.log(LogChannels.DATA, f"Applying windows...")
         self.apply_window_to_signals()
@@ -254,3 +259,24 @@ class StrokedHandwrittingDataset(HandWrittingDataset):
         split_indices = np.where(distances > self.MAX_PIX_PENUP_THRESHOLD)[0] + 1
         segments = np.split(signal, split_indices)
         return segments
+
+    def remove_false_start(self) -> None:
+        """
+        Remove false start from signals
+        A False start is a repetition of the same starting coordinates
+        Could indicate that the capture did not start immediatly
+        """
+        cleaned_signals = []
+        for signal in self.signals:
+            coordinates_changed = False
+
+            real_start = 0
+            original_x, original_y, _ = signal[real_start]
+
+            while not coordinates_changed and real_start < len(signal) - 1:
+                real_start += 1
+                next_x, next_y, _ = signal[real_start]
+                coordinates_changed = (original_x != next_x or original_y != next_y)
+            
+            cleaned_signals.append(signal[real_start-1:])
+        self.signals = cleaned_signals

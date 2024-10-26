@@ -1,11 +1,9 @@
 import os
 import numpy as np
-import math
 import pickle
 from pathlib import Path
 
 from source.logging.log import logger, LogChannels
-from source.model.blocks.constants.sequence_to_image import ImageHelper
 
 from source.data_management.common.stroked_handwriting_dataset import StrokedHandwrittingDataset
 
@@ -33,11 +31,11 @@ class BrushDataset(StrokedHandwrittingDataset):
     FILE_SIGNALS = "images.npy"
 
     def __init__(self, brush_root, patches_dim: tuple, save_to_file: bool = True, strokemode: bool = True,
-                 normalize_pixel_values: bool = True, normalize_coordinate_sequences: bool = True, window_size: int = None, lstm_forecast_length: int = None):
+                 normalize_pixel_values: bool = True, normalize_coordinate_sequences: bool = True, window_size: int = None, lstm_mode: bool = False):
         self.brush_root = brush_root
         self.save_to_file = save_to_file
 
-        super().__init__(patches_dim, strokemode, normalize_pixel_values, normalize_coordinate_sequences, window_size, lstm_forecast_length)
+        super().__init__(patches_dim, strokemode, normalize_pixel_values, normalize_coordinate_sequences, window_size, lstm_mode)
 
     def _load_data(self):
         """Function that tries to retrieve samples form single file. If it cannot, retrieve samples from individual files on disk"""

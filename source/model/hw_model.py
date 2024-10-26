@@ -16,6 +16,9 @@ from source.model.blocks.hw_decoder import HwDecoder
 
 from source.logging.log import logger, LogChannels
 from source.model.blocks.constants.tokens import Tokens
+from source.model.blocks.hw_lstm import HwLstm
+from torch.nn.utils.rnn import pack_sequence, pad_packed_sequence, PackedSequence
+from source.model.blocks.constants.device_helper import device
 
 class HwTransformer(nn.Module):
     #Models composing this transformer (high level blocks)
@@ -31,6 +34,7 @@ class HwTransformer(nn.Module):
     prediction_token: nn.Parameter
 
     use_lstm: bool
+    lstm_module: HwLstm
 
     # Define the output of the model's prediction (it predicts a single point).s
     # Default: Generate (x,y) coordinates with dim=2
@@ -57,7 +61,6 @@ class HwTransformer(nn.Module):
     decoder_dim: int
 
     #Usefull components
-    unfolder: torch.nn.Unfold
     encoder_positional_embeddings: nn.Parameter
     decoder_positional_embeddings: nn.Parameter
 
@@ -65,7 +68,7 @@ class HwTransformer(nn.Module):
     n_patches: int
 
     def __init__(self, 
-                    use_prediction_token: bool, use_lstm: bool,
+                    use_prediction_token: bool, use_lstm: bool, lstm_module: HwLstm = None,
                     hidden_dim: int = 20, enc_dec_dropout_ratio: float = 0.0,
                     encoder_patch_dimension: tuple = (20, 20), fixed_size_image_dimension: tuple = (500, 200),
                     n_encoder_layers: int = 2, n_encoder_heads: int = 4, enc_ff_expension_ratio: int = 2, encoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.LEAKYRELU,
@@ -77,6 +80,9 @@ class HwTransformer(nn.Module):
         #Transformer config
         self.output_dim = output_dim
         self.use_lstm = use_lstm
+        self.lstm_module = lstm_module
+        if use_lstm and lstm_module is None:
+            raise Exception("If use_LSTM property is activated on HWTransformer, a LSTM_Module is required")
         self.use_prediction_token = use_prediction_token
         self.encoder_patch_dimension = encoder_patch_dimension
         self.fixed_size_image_dimension = fixed_size_image_dimension
@@ -101,7 +107,6 @@ class HwTransformer(nn.Module):
         #Init all necessary components of the transformer
         self.init_positional_embeddings()
         self.init_layers()
-        self.init_unfolder()
 
     def init_positional_embeddings(self):
         """Create the fixed positional embeddings for encoder and decoder input"""
@@ -126,14 +131,6 @@ class HwTransformer(nn.Module):
             self.decoder_dim += 1
         self.decoder_positional_embeddings = nn.Parameter(self.get_positional_embeddings(self.decoder_dim, self.hidden_dim))
         self.decoder_positional_embeddings.requires_grad = False
-    
-    def patchify(self, images: torch.Tensor) -> torch.Tensor:
-        """Patchify an image - either square or rectangle"""
-        return self.unfolder(images).permute(0, 2, 1)
-    
-    def init_unfolder(self):
-        """Init the unfolder kernel"""
-        self.unfolder = torch.nn.Unfold(self.encoder_patch_dimension, stride=self.encoder_patch_dimension)
 
     def get_positional_embeddings(self, sequence_length: int, dimension: int) -> torch.Tensor:
         result = torch.ones(sequence_length, dimension)
@@ -166,7 +163,8 @@ class HwTransformer(nn.Module):
                                                        self.encoder_ff_activation_Function, self.enc_dec_dropout_ratio) for _ in range(self.n_encoder_layers)])        
 
         self.decoder_layers = nn.ModuleList([HwDecoder(self.hidden_dim, self.n_decoder_heads, self.decoder_dim, 
-                                                       self.enc_dec_dropout_ratio, self.dec_ff_expension_ratio, self.decoder_ff_activation_Function, use_prediction_token=self.use_prediction_token) for _ in range(self.n_decoder_layers)])        
+                                                       self.enc_dec_dropout_ratio, self.dec_ff_expension_ratio, self.decoder_ff_activation_Function, 
+                                                       use_prediction_token=self.use_prediction_token, use_lstm=self.use_lstm) for _ in range(self.n_decoder_layers)])        
 
         #Output MLP has the full flattened sequence embeddings as input and create an output token
         if self.use_prediction_token:
@@ -174,16 +172,19 @@ class HwTransformer(nn.Module):
             self.output_mlp = nn.Linear(self.hidden_dim, self.output_dim)
             self.stop_signal_output = nn.Linear(self.hidden_dim, 1)
         else:
-            self.output_mlp = nn.Linear(self.autoregressive_target_seq_len * self.hidden_dim , self.output_dim)
+            decoder_dim = self.autoregressive_target_seq_len
+            if self.use_lstm:
+                decoder_dim += 1
+            self.output_mlp = nn.Linear(decoder_dim * self.hidden_dim , self.output_dim)
             #Output signal indicating whether to end the signal on the next prediction. Result in a single value
-            self.stop_signal_output = nn.Linear(self.autoregressive_target_seq_len * self.hidden_dim, 1)
+            self.stop_signal_output = nn.Linear(decoder_dim * self.hidden_dim, 1)
 
-    def normalize_target_sequences(self, target_sequences: Tensor) -> tuple[Tensor, Tensor]:
+    def normalize_target_sequences(self, target_sequences: PackedSequence) -> tuple[Tensor, Tensor]:
         """Normalize the target sequences and generate the relevant padding mask
         
         Args
         -----
-            target_sequences: Tensor - A tensor of shape [batch, seq_len, seq_dim]
+            target_sequences: PackedSequence - A packet sequence containing all sequences for this batch
             
         Returns
         -----
@@ -191,41 +192,43 @@ class HwTransformer(nn.Module):
             padding_mask - Tensor: The mask, a boolean tensor with a shape of [batch, autoregressive_len]. Filled with true for padding, false for values
         """
         # Reshape the target sequences so that each of them correspond to the target length. There can be padding (l<fixed_l) or clipping(l>fixed_l).
-        # Target is of shape [batch, sequence_len, sequences_dim]
-        batch_size, target_len, target_dim = target_sequences.shape
-        device = target_sequences.device
-        if target_len < self.autoregressive_target_seq_len:
-            #Pad to autoregressive len
-            padded_targets = torch.full((batch_size, self.autoregressive_target_seq_len, target_dim), Tokens.COORDINATE_SEQUENCE_PADDING_TOKEN.value, device=device)
-            padded_targets[:, :target_len, :] = target_sequences
+        normalized_sequences = []
+        padding_sequences = []
 
-            #Created associated mask for the encoder, a 2D mask of batch, target_len that identifies the embeddings that we just padded
-            source_padding_mask = torch.ones((batch_size, self.decoder_dim), device=device)
+        sequences, original_lengths = pad_packed_sequence(target_sequences, batch_first=True, padding_value=0)
+        target_dim = target_sequences.data[0].shape[0]
 
-            #Carefull: First can be position
-            if self.use_prediction_token:
-                #Pred token
-                source_padding_mask[:, 0] = 0
-                #Sequence
-                source_padding_mask[:, 1:1+target_len] = 0
+        for i, original_length in enumerate(original_lengths):
+            normalized_sequence: Tensor
+            mask: Tensor
+
+            if original_length <= self.autoregressive_target_seq_len:
+                #Case: Padding needed
+                padding_count = self.autoregressive_target_seq_len - original_length
+                sequence_padding = torch.full((padding_count, target_dim), 
+                                              fill_value=Tokens.COORDINATE_SEQUENCE_PADDING_TOKEN.value, device=device)
+                normalized_sequence = torch.cat([sequences[i, :original_length], sequence_padding])
+                mask = torch.BoolTensor([i >= original_length for i in range(self.autoregressive_target_seq_len)])
             else:
-                source_padding_mask[:, :target_len] = 0
-                
-            source_padding_mask = source_padding_mask.bool()
-            return padded_targets.float(), source_padding_mask
+                #Clip sequence to keep autoregressive length
+                normalized_sequence = (sequences[i][:original_length])[-self.autoregressive_target_seq_len:]
 
-        #In case target_len >= self.autoregressive_target_seq_len, no padding is involved
-        no_padding_mask = torch.zeros((batch_size, self.decoder_dim), device=device).bool()
+                #Nothing is padded
+                mask = torch.BoolTensor([False for _ in range(self.autoregressive_target_seq_len)])
+            
+            if self.use_prediction_token:
+                #In case of a prediction token, add always-non-padded item at start of mask
+                mask = torch.cat([torch.BoolTensor([False]), mask])
+            if self.use_lstm:
+                #In case of a LSTM, add always-non-padded item at end of mask
+                mask = torch.cat([mask, torch.BoolTensor([False])])
 
-        #Rare case (once every training) where length is exactly right
-        if target_len == self.autoregressive_target_seq_len:
-            return target_sequences, no_padding_mask
-    
-        #Otherwise, clip and take last X elements
-        clipped_targets = target_sequences[:, -self.autoregressive_target_seq_len:]
-        return clipped_targets, no_padding_mask
+            normalized_sequences.append(normalized_sequence)
+            padding_sequences.append(mask.to(device))
 
-    def forward(self, patchified_images: Tensor, images_padding_masks: Tensor, target_sequences: Tensor):
+        return torch.stack(normalized_sequences), torch.stack(padding_sequences)
+
+    def forward(self, patchified_images: Tensor, images_padding_masks: Tensor, target_sequences: PackedSequence):
         """Generate the next predictions
         
         Args:
@@ -238,7 +241,7 @@ class HwTransformer(nn.Module):
         """
         logger.log(LogChannels.DIMENSIONS, f"Transformer - images dim: {patchified_images.dtype} {patchified_images.shape}")
         logger.log(LogChannels.DIMENSIONS, f"Transformer - masks dim: {images_padding_masks.dtype} {images_padding_masks.shape}")
-        logger.log(LogChannels.DIMENSIONS, f"Transformer - target sequences dim: {target_sequences.dtype} {target_sequences.shape}")
+        logger.log(LogChannels.DIMENSIONS, f"Transformer - target sequences dim: {target_sequences.batch_sizes}")
 
         ## Encoder ##
         #Pass patches through linear layer to obtain embeddings
@@ -259,6 +262,7 @@ class HwTransformer(nn.Module):
         
         ## Decoder ##
         #Normalize all target sequences to the autoregressive length (pad/clip), retrieve associated mask
+        #Normalizing to autoregression ensure correct dimensions in later MLPs, at the end of the transformer.
         normalized_target_sequences, target_sequences_padding_masks = self.normalize_target_sequences(target_sequences)
         logger.log(LogChannels.MASKS, f"Transformer - Target sequence padding: {target_sequences_padding_masks[0]}")
 
@@ -270,6 +274,14 @@ class HwTransformer(nn.Module):
             #Add prediction token
             embeding_target_sequences = torch.cat((self.prediction_token.expand(embeding_target_sequences.shape[0], 1, -1), embeding_target_sequences), dim=1)
             logger.log(LogChannels.DIMENSIONS, f"Transformer - Embedded images dim with prediction token: {embeding_target_sequences.shape}")
+
+        #When using LSTM, Add LSTM last hidden input at end of sequence
+        if self.use_lstm:
+            #Add LSTM hidden layer
+            #LSTM input layer can accept target sequences un-normalized
+            lstm_output = self.lstm_module.forward(target_sequences, last_layer_mlp=False).unsqueeze(1)
+            embeding_target_sequences = torch.cat([embeding_target_sequences, lstm_output], dim=1)
+            logger.log(LogChannels.DIMENSIONS, f"Transformer - Embedded images dim with LSTM hidden layer: {embeding_target_sequences.shape}")
 
         #Add positional embedding
         n = embeding_target_sequences.shape[0]
@@ -299,3 +311,17 @@ class HwTransformer(nn.Module):
             stop_signal_output = self.stop_signal_output(flattened_decoder_out)
 
         return final_output, stop_signal_output
+    
+    def prepare_sequences_for_lstm(self, sequences: Tensor) -> PackedSequence:
+        """
+            Remove padding from a sequence in order to better ingest it into the LSTM. As a result of
+            inhomogeneous input, return a packedSequence
+        """
+        filtered_sequences = []
+
+        for sequence in sequences:
+            # Create a mask to filter out padding token values
+            mask = ~torch.all(sequence == Tokens.PADDING_TENSOR.value, dim=1)
+            filtered_sequences.append(sequence[mask])
+
+        return pack_sequence(filtered_sequences, enforce_sorted=False)

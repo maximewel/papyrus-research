@@ -3,42 +3,43 @@ import torch.nn as nn
 class HwLstm(nn.Module):
     lstm_layer: nn.LSTM
     output_linear_layer: nn.Linear
-    
-    last_hidden_state: None
-    last_cell_state: None
-
-    keep_state: bool
-    
+        
     #X,Y coordinates
-    OUTPUT_SIZE = 2
+    OUTPUT_SIZE_COORDINATES = 2
 
-    def __init__(self, input_size, hidden_size, num_layers, keep_state: bool = False):
+    def __init__(self, input_size: int, hidden_size: int, num_layers: int):
+        """
+        Create a LSTM layer
+
+        args
+        -----   
+            input_size: int     - size of input
+            hidden_size: int    - Hidden size of the LSTM, dictates output size if last_layer_mlp is false
+            num_layers: int     - Layers of the LSTM
+        """
         super().__init__()
         self.lstm_layer = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
-        self.output_linear_layer = nn.Linear(2*hidden_size, HwLstm.OUTPUT_SIZE)
+        self.output_linear_layer = nn.Linear(hidden_size, HwLstm.OUTPUT_SIZE_COORDINATES)
 
-        #Keep state can be used when working to avoid re-computation of the whole sequence, just keeping the state for a single signal
-        self.set_keep_state(keep_state)
-    
-    def set_keep_state(self, keep_state : bool):
-        """Set the keep state value"""
-        self.keep_state = keep_state
-        if self.keep_state:
-            self.clear()
+    def forward(self, x, last_layer_mlp: bool):
+        """
+            Forward call
 
-    def clear(self):
-        """Reset this LSTM state when working on new signal"""
-        self.last_cell_state = ()
-        self.last_hidden_state = ()
-
-    def forward(self, x):
+            args
+            -----
+                last_layer_mlp: bool - Whether to return a coordinate or the last hidden layer
+                    MLP output - Useful for training LSTM
+                    Hidden output - Useful for transformer generation
+        """
         # Pass through LSTM (L,N,Hin​)
-        # output, (hn, cn) = rnn(input, (h0, c0))
-        if self.keep_state:
-            x, (self.last_hidden_state, self.last_cell_state) = self.lstm_layer(x, (self.last_hidden_state, self.last_cell_state))
-        else:
-            x, _ = self.lstm_layer(x)
+        x, (hn, cn) = self.lstm_layer(x)
 
-        #Return linear layer prediction for next value based on the last very last hidden output of every batched input
-        x = self.output_linear_layer(x[:, -1, :])
-        return x
+        if last_layer_mlp:
+            # Return linear layer prediction for next value based on the last very last hidden output of every batched input
+            # Useful for training, where loss can be computed between predicted and expected coordinates
+            output = self.output_linear_layer(hn[-1])
+        else:
+            # Return the last hidden layer, which has hidden_dimensions as dim
+            output = hn[-1]
+
+        return output
