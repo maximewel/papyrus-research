@@ -226,6 +226,7 @@ class HwTransformer(nn.Module):
             normalized_sequences.append(normalized_sequence)
             padding_sequences.append(mask.to(device))
 
+        logger.log(LogChannels.MASKS, f"Sequences len: {original_lengths}, Padding masks:\n{padding_sequences}")
         return torch.stack(normalized_sequences), torch.stack(padding_sequences)
 
     def forward(self, patchified_images: Tensor, images_padding_masks: Tensor, target_sequences: PackedSequence):
@@ -241,7 +242,6 @@ class HwTransformer(nn.Module):
         """
         logger.log(LogChannels.DIMENSIONS, f"Transformer - images dim: {patchified_images.dtype} {patchified_images.shape}")
         logger.log(LogChannels.DIMENSIONS, f"Transformer - masks dim: {images_padding_masks.dtype} {images_padding_masks.shape}")
-        logger.log(LogChannels.DIMENSIONS, f"Transformer - target sequences dim: {target_sequences.batch_sizes}")
 
         ## Encoder ##
         #Pass patches through linear layer to obtain embeddings
@@ -257,7 +257,6 @@ class HwTransformer(nn.Module):
         #Send patchified images to encoder, retrieving embeddings
         encoder_out = embeding_patch_vectors
         for encoder in self.encoder_layers:
-            #self, x:torch.Tensor, source_padding_mask: torch.Tensor
             encoder_out = encoder(x=encoder_out, source_padding_mask=images_padding_masks)
         
         ## Decoder ##
@@ -265,6 +264,7 @@ class HwTransformer(nn.Module):
         #Normalizing to autoregression ensure correct dimensions in later MLPs, at the end of the transformer.
         normalized_target_sequences, target_sequences_padding_masks = self.normalize_target_sequences(target_sequences)
         logger.log(LogChannels.MASKS, f"Transformer - Target sequence padding: {target_sequences_padding_masks[0]}")
+        logger.log(LogChannels.INTERNAL_SEQUENCE_TRACE, f"Transformer - Normalized target sequence : {normalized_target_sequences}")
 
         #Pass through embedding layer
         embeding_target_sequences = self.decoder_embedding_layer(normalized_target_sequences)
@@ -282,6 +282,8 @@ class HwTransformer(nn.Module):
             lstm_output = self.lstm_module.forward(target_sequences, last_layer_mlp=False).unsqueeze(1)
             embeding_target_sequences = torch.cat([embeding_target_sequences, lstm_output], dim=1)
             logger.log(LogChannels.DIMENSIONS, f"Transformer - Embedded images dim with LSTM hidden layer: {embeding_target_sequences.shape}")
+
+        logger.log(LogChannels.INTERNAL_SEQUENCE_TRACE, f"Transformer - Embedding target sequences : {embeding_target_sequences}")
 
         #Add positional embedding
         n = embeding_target_sequences.shape[0]

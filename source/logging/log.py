@@ -14,6 +14,7 @@ class LogChannels(Enum):
     PARAMS = auto()
     LOSSES = auto()
     LOSS_DETAILED = auto()
+    INTERNAL_SEQUENCE_TRACE = auto()
 
 class Logger():
 

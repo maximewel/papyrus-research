@@ -28,6 +28,7 @@ class HandWrittingDataset(Dataset, ABC):
     images: list[np.ndarray]
 
     #Used in Transformer mode
+    batchified_images: list[np.ndarray]
     batchified_patchified_images: list[torch.Tensor]
     batchified_patches_padding_masks: list[torch.Tensor]
     batchified_sequences: list[torch.Tensor]
@@ -123,13 +124,16 @@ class HandWrittingDataset(Dataset, ABC):
         if self.lstm_mode:
             return sequence, label
         
-        image = self.batchified_patchified_images[idx]
+        #Return image unpatched and patched
+        #Unpatched image is usefull to compute skeletton loss, meanwhile patch image goes into transformer
+        image = self.batchified_images[idx]
+        image_patch = self.batchified_patchified_images[idx]
         mask = self.batchified_patches_padding_masks[idx]
         
-        return image, mask, sequence, label
+        return image, image_patch, mask, sequence, label
     
     @staticmethod
-    def collate_batch_transformer(batch_data: list[tuple[Tensor, Tensor, Tensor, Tensor]]) -> tuple[tuple[Tensor, Tensor], PackedSequence, Tensor]:
+    def collate_batch_transformer(batch_data: list[tuple[np.ndarray, Tensor, Tensor, Tensor, Tensor]]) -> tuple[list[np.ndarray], Tensor, Tensor, PackedSequence, Tensor]:
         """
             Collate a HW batch into merged return values
             Use as collate_fn in datasets using HW datasets
@@ -138,13 +142,15 @@ class HandWrittingDataset(Dataset, ABC):
 
             Returnss
             -----
-                (Tensor, Tensor), PackedSequence, Tensor
-                    * (Images, Paddings) as Tuple[Tensor, Tensor]: Get the images, paddings as a normalized vector of shape target_shape
-                    * Sequences as PackedSequence
-                    * Tensor: Labels as a tensor
+                List[np.ndarray], Tensor, Tensor, PackedSequence, Tensor
+                    * Images as a list of ndarray - contains the original images
+                    * Images_patches as a tensor of homogeneous, padded, patches representing images
+                    * Masks corresponding to the image patches
+                    * Sequences as PackedSequence of non homogeneous signals
+                    * Tensor: Labels as a tensor of size [batch, 2]
         """
-        images, masks, sequences, labels = zip(*batch_data)
-        return torch.stack(images), torch.stack(masks), pack_sequence(sequences, enforce_sorted=False), torch.stack(labels)
+        images, patchified_images, masks, sequences, labels = zip(*batch_data)
+        return images, torch.stack(patchified_images), torch.stack(masks), pack_sequence(sequences, enforce_sorted=False), torch.stack(labels)
     
     @staticmethod
     def collate_batch_lstm(batch_data: list[tuple[Tensor, Tensor]]) -> tuple[PackedSequence, Tensor]:
@@ -227,6 +233,7 @@ class HandWrittingDataset(Dataset, ABC):
         coordinates_to_predict = []
         signals_to_predict = []
         batchified_images = []
+        batchified_patchified_images = []
         batchified_masks = []
 
         #For a signal of size i, as we always give the first 
@@ -250,11 +257,13 @@ class HandWrittingDataset(Dataset, ABC):
 
                 if not self.lstm_mode:
                     #If not LSTM, append the patchified image and mask's reference to the list
-                    batchified_images.append(self.patchified_images[i])
+                    batchified_images.append(self.images[i])
+                    batchified_patchified_images.append(self.patchified_images[i])
                     batchified_masks.append(self.patches_padding_masks[i])
 
         self.batchified_sequences = signals_to_predict
-        self.batchified_patchified_images = batchified_images
+        self.batchified_images = batchified_images
+        self.batchified_patchified_images = batchified_patchified_images
         self.batchified_patches_padding_masks = batchified_masks
         self.coordinate_to_predict = coordinates_to_predict
 
