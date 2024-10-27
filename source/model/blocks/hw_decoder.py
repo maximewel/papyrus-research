@@ -127,7 +127,7 @@ class HwDecoder(nn.Module):
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Dimensions output from encoder: {encoder_output.shape}")
         msa_target_norm = self.norm_layer_2(msa_target_out)
         input_and_target_attention, _ = self.encoder_decoder_mha(msa_target_norm, encoder_output, encoder_output, 
-                                                                key_padding_mask=encoder_padding_mask, need_weights=False)
+                                                                key_padding_mask = encoder_padding_mask, need_weights=False)
         
         input_and_target_attention = self.dropout_layer(input_and_target_attention) + msa_target_out
 

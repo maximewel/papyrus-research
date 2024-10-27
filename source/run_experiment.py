@@ -18,20 +18,21 @@ from datetime import datetime
 from source.model.blocks.constants.files import *
 from source.model.blocks.helper.id_card_creator import IdCardCreator
 from source.model.blocks.constants.device_helper import device
+from source.criterions.losses_weights import LossesWeights
 
 import torch
 
-ENCODER_HEADS = 16
-DECODER_HEADS = 16
+ENCODER_HEADS = 8
+DECODER_HEADS = 8
 
 ENCODER_LAYERS = 10
 DECODER_LAYERS = 10
 
 AUTOREGRESS_TARGET_LEN = 500
 
-DROPOUT_RATIO = 0.1
-
+DROPOUT_RATIO = 0.0
 BATCH_SIZE = 8
+
 PATCHES_DIM = (8, 8)
 EMBEDDING_DIMS = 256
 
@@ -39,10 +40,10 @@ NORMALIZE_COORDS = True
 NORMALIZE_PIXEL_VALUES = False
 
 USE_PREDICTION_TOKEN = False
-USE_LSTM = True
+USE_LSTM = False
 LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
-TRAIN_SIZE = 0.8
+TRAIN_SIZE = 0.7
 TEST_SIZE = 0.2
 
 LR = 0.001
@@ -50,20 +51,25 @@ N_EPOCHS = 5
 
 USE_BRUSH = True
 
+WEIGHT_EOS = 1
+WEIGHT_COORD = 5
+WEIGHT_SKELETON = 2
+
 if __name__ == "__main__":
     #Set logging
     # for channel in LogChannels:
     #     logger.add_log_channel(channel)
     #logger.add_log_channel(LogChannels.TRAINING)
     #logger.add_log_channel(LogChannels.DEBUG)
-    logger.add_log_channel(LogChannels.LOSSES)
-    logger.add_log_channel(LogChannels.LOSS_DETAILED)
     # logger.add_log_channel(LogChannels.INIT)
-    logger.add_log_channel(LogChannels.PARAMS)
+    #logger.add_log_channel(LogChannels.PARAMS)
     #logger.add_log_channel(LogChannels.DIMENSIONS)
-    #logger.add_log_channel(LogChannels.DATA)
+    # logger.add_log_channel(LogChannels.DATA)
     # logger.add_log_channel(LogChannels.PADDING)
     #logger.add_log_channel(LogChannels.MASKS)
+
+    logger.add_log_channel(LogChannels.LOSSES)
+    logger.add_log_channel(LogChannels.LOSS_DETAILED)
 
     #print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
@@ -103,6 +109,8 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, shuffle=True, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=dataset.get_collate_function())
     test_loader = DataLoader(test_dataset, shuffle=False, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=dataset.get_collate_function())
 
+    losses_weights = LossesWeights(WEIGHT_EOS, WEIGHT_COORD, WEIGHT_SKELETON)
+
     logger.log(LogChannels.INIT, f"Using n° points to predict: Train={len(train_dataset)}, Test={len(test_dataset)}, Valid={len(validation_dataset)}")
 
     logger.log(LogChannels.INIT, f"Loading {len(train_loader)} sub-strokes batches as train, {len(test_loader)} sub-strokes batches as test")
@@ -120,7 +128,7 @@ if __name__ == "__main__":
     
     #Start training
     try:
-        return_figures = do_training(model, train_loader, test_loader, device, N_EPOCHS, LR)
+        return_figures = do_training(model, train_loader, test_loader, device, N_EPOCHS, LR, NORMALIZE_COORDS, dataset.target_image_shape, losses_weights)
     except Exception as e:
         print(f"Encountered exception while training model: {e}")
         raise e

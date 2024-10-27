@@ -19,7 +19,7 @@ class ImageHelper():
         return cls.DRAW_COLOR_WHITE - image
 
     @classmethod
-    def create_image(cls, signal: list[int, int, bool], canvas_size: tuple = None):
+    def create_image(cls, signal: list[tuple[int, int, bool]], canvas_size: tuple = None):
         """Create the image associated with the given signal."""
         if canvas_size is None:
             max_h =  int(math.ceil(max(signal[:, 0])))
