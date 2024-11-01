@@ -7,6 +7,7 @@ class FFActivationFunction(Enum):
     GELU = auto()
     SILU = auto()
     LEAKYRELU = auto()
+    SIGMOID = auto()
 
 class ActivationHelper():
     ### Const ###
@@ -24,5 +25,7 @@ class ActivationHelper():
                 return nn.SiLU()
             case FFActivationFunction.LEAKYRELU:
                 return nn.LeakyReLU(negative_slope = cls.LRELU_NEGATIVE_SLOPE)
+            case FFActivationFunction.SIGMOID:
+                return nn.Sigmoid()
             case _:
                 raise Exception(f"Impossible to parse activation function {FF_enum_value} into options {[f.name for f in FFActivationFunction]}")

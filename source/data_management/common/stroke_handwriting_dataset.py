@@ -1,9 +1,10 @@
-from source.data_management.common.handwritting_dataset import HandWrittingDataset
 import numpy as np
 
 from source.logging.log import logger, LogChannels
+from abc import ABC, abstractmethod
+from source.model.blocks.constants.sequence_to_image import ImageHelper
 
-class StrokedHandwrittingDataset(HandWrittingDataset):
+class StrokeHandwrittingDataset(ABC):
     #Some constants used during pre-processing of the signals before creating the images
     PADDING = 3
     MAX_PIX_PENUP_THRESHOLD = 100
@@ -16,13 +17,31 @@ class StrokedHandwrittingDataset(HandWrittingDataset):
     SAVE_IMAGES_NUMBER = 4
 
     separate_strokes: bool
+    signals_max_shape: tuple[int, int]
 
-    def __init__(self, patches_dim, separate_strokes: bool = True, normalize_pixel_values = True, normalize_coordinate_sequences = True, 
-                 window_size = None, lstm_mode: bool = None, samples_to_take: int|float = None):
+    def __init__(self, separate_strokes: bool = True, image_max_shape: tuple[int, int] = None, window_size: int = None):
         self.separate_strokes = separate_strokes
-        
-        super().__init__(patches_dim, normalize_pixel_values, normalize_coordinate_sequences, window_size, lstm_mode, samples_to_take)
+        self.signals_max_shape = image_max_shape
+        self.window_size = window_size
 
+        self.signals = []
+        
+        self._load_data()
+
+        self.apply_all_preprocess_to_signals()
+
+    def __len__(self):
+        return len(self.signals)
+
+    @abstractmethod
+    def _load_data(self):
+        """
+        Load_data: Private function used only by the dataset itself.
+        Classes implementing handwriting datasets must fill the self.signals variable
+        from their data sources.
+        """
+        raise NotImplementedError()
+    
     def apply_all_preprocess_to_signals(self):
         """
         Apply all common pre-processes to the signals. Must be called before creating images.
@@ -54,7 +73,7 @@ class StrokedHandwrittingDataset(HandWrittingDataset):
         logger.log(LogChannels.DATA, f"Penup verification done. Number of signals: {len(self.signals)}")
 
         logger.log(LogChannels.DATA, f"Removing all outliers...")
-        self.remove_outlier_images_and_resize()
+        self.remove_outlier_images_and_cut()
         logger.log(LogChannels.DATA, f"Outliers removed. Number of signals: {len(self.signals)}")
 
         #Apply a last align
@@ -141,11 +160,73 @@ class StrokedHandwrittingDataset(HandWrittingDataset):
         logger.log(LogChannels.DATA, f"returning {len(cut_signals)} signals of len {[len(sig) for sig in cut_signals]}")
 
         return cut_signals
+    
+    def remove_outlier_images_and_cut(self):
+        """
+        Remove outlier images in term of image width and height, in order to not waste high processing power as the max length
+        image dictates the dimensions of the image tensor and padding
+        V2: CUT Big images into sub-images
+        """
+        images_widths, images_heigths = [], []
+        for signal in self.signals:
+            #Get X, Y amplitudes
+            image_w, image_h = self.shape_from_signal(signal)
+            images_widths.append(image_w)
+            images_heigths.append(image_h)
 
+        if self.signals_max_shape is None:
+            images_widths_mean, images_widths_std = np.mean(images_widths), np.std(images_widths)
+            images_heigths_mean, images_heigths_std = np.mean(images_heigths), np.std(images_heigths)
+
+            W_thresh, H_thresh = int(images_widths_mean + self.OUTLIER_STD_THRESH*images_widths_std), int(images_heigths_mean + self.OUTLIER_STD_THRESH*images_heigths_std)
+            self.signals_max_shape = (W_thresh, H_thresh)
+        
+        logger.log(LogChannels.DATA, f"Cutting images above threshold {self.signals_max_shape}")
+        cut_signals = []
+
+        import matplotlib.pyplot as plt
+
+        for i in range(len(self.signals)):
+            working_signals = [self.signals[i]]
+            working_signals_shapes = [(images_widths[i], images_heigths[i])]
+
+            #Cut signal in half while image(s) are too big
+            cut_signals.extend(self.cut_signals_above_threshold(self.signals_max_shape, working_signals, working_signals_shapes))
+
+        self.signals = cut_signals
+    
+    def cut_signals_above_threshold(self, threshold: tuple[int, int], signals: list[np.ndarray], signal_shapes: list[tuple[int, int]]) -> list[np.ndarray]:
+        """Recursive function that returns only signals fitting the given threshold"""
+        signals_below_threshold = []
+        
+        for signal, (w, h) in zip(signals, signal_shapes):
+            if w > threshold[0] or h > threshold[1]:
+                #Cut in half, send recursively (Could still be too large)
+                middle = int(np.ceil(len(signal)/2))
+
+                subsignals = [signal[:middle], signal[middle:]]
+
+                subsignal_shapes = [self.shape_from_signal(subsignals[0]), self.shape_from_signal(subsignals[1])]
+                signals_below_threshold.extend(self.cut_signals_above_threshold(threshold, subsignals, subsignal_shapes))
+            else:
+                signals_below_threshold.append(signal)
+
+        return signals_below_threshold
+        
+
+    def shape_from_signal(self, signal: list) -> tuple[int, int]:
+        """Compute the w,h from a signal"""
+        paddings = self.PADDING + ImageHelper.PADDING_RIGHT_BOTTOM
+        min_X, max_X = np.min(signal[:, 0]), np.max(signal[:,0])
+        min_Y, max_Y = np.min(signal[:, 1]), np.max(signal[:,1])
+        image_w, image_h = max_X - min_X, max_Y - min_Y
+        return image_w + paddings, image_h + paddings
+    
     def remove_outlier_images_and_resize(self):
         """
         Remove outlier images in term of image width and height, in order to not waste high processing power as the max length
         image dictates the dimensions of the image tensor and padding
+        V1: Resizes images too big
         """
         images_widths, images_heigths = [], []
         for signal in self.signals:
@@ -160,6 +241,8 @@ class StrokedHandwrittingDataset(HandWrittingDataset):
         images_heigths_mean, images_heigths_std = np.mean(images_heigths), np.std(images_heigths)
 
         W_thresh, H_thresh = int(images_widths_mean + self.OUTLIER_STD_THRESH*images_widths_std), int(images_heigths_mean + self.OUTLIER_STD_THRESH*images_heigths_std)
+        
+        logger.log(LogChannels.DATA, f"Removing images above threshold {(W_thresh, H_thresh)}")
 
         #Remove worst outliers from dataset by eliminating them from all three lists in order to re-use the calculated stats
         outlier_indexes = [i for i, _ in enumerate(self.signals) if images_widths[i] > W_thresh or images_heigths[i] > H_thresh]
@@ -175,12 +258,14 @@ class StrokedHandwrittingDataset(HandWrittingDataset):
             images_before_after_resize = []
 
         #Resize images too big, preserving aspect ratio
+        resize_target_w, resize_target_h = (images_widths_mean + images_widths_std), (images_heigths_mean + images_heigths_std)
+        logger.log(LogChannels.DATA, f"Resizing images to {(resize_target_w, resize_target_h)}")
         for i in range(len(self.signals)):
             image_w = images_widths[i]
             image_h = images_heigths[i]
 
-            ratio_w_to_mean = image_w / (images_widths_mean + images_widths_std)
-            ratio_h_to_mean = image_h / (images_heigths_mean + images_heigths_std)
+            ratio_w_to_mean = image_w / resize_target_w
+            ratio_h_to_mean = image_h / resize_target_h
 
             if ratio_w_to_mean > 1 or ratio_h_to_mean > 1:
                 resize_factor = 1 / max(ratio_w_to_mean, ratio_h_to_mean)
@@ -200,7 +285,6 @@ class StrokedHandwrittingDataset(HandWrittingDataset):
         """
         #Local imports, never used except during this particular test
         import matplotlib.pyplot as plt
-        from source.model.blocks.constants.sequence_to_image import ImageHelper
 
         num_images = len(signals_list)
 

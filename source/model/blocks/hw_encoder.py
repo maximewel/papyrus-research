@@ -73,22 +73,18 @@ class HwEncoder(nn.Module):
                 With hidden_d the flattened dimensions of the patches
             source_padding_mask: Mask of dimensions [batch_size, n_patches] where true indicates that the patch is 
         """
-        ## P1 ##
-        #Do MHA over input
-        #Pre-layer norm before msa
-        x_norm = self.norm_layer_1(x) 
-        msa_out, _ = self.mhsa(x_norm, x_norm, x_norm, key_padding_mask=source_padding_mask, need_weights=False)
-        msa_out = self.dropout_layer(msa_out)
+        ## P1 - Multi-Head attention ##
+        # Do MHA over input
+        # Pre-layer norm before msa.
+        x_norm = self.norm_layer_1(x)
+        msha_out, _ = self.mhsa(x_norm, x_norm, x_norm, key_padding_mask=source_padding_mask, need_weights=False)
+        msha_out = self.dropout_layer(msha_out) + x
 
-        #Add
-        x = x + msa_out
-
-        ## P2 ##
-        #Do feed forward over input
+        ## P2 - FFN ##
+        # Do feed forward over input
         # Pre-LayerNorm before feedforward
-        x_norm = self.norm_layer_2(x)  
-        ff_out = self.feed_forward(x_norm)
-        ff_out = self.dropout_layer(ff_out)
-        x = x + ff_out 
+        msha_out_norm = self.norm_layer_2(msha_out)
+        ff_out = self.feed_forward(msha_out_norm)
+        ff_out = self.dropout_layer(ff_out) + msha_out
 
-        return x
+        return ff_out

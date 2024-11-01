@@ -3,9 +3,10 @@ Unified Handwriting dataset
 Used to apply the same transformation to multiple data sources and obtain a unified dataset containing 
 uniformily processed HW data.
 """
-
+from __future__ import annotations
 from torch.utils.data import Dataset
 from source.model.blocks.helper.patches import Patchificator
+from source.data_management.common.stroke_handwriting_dataset import StrokeHandwrittingDataset
 import torch
 import numpy as np
 from source.model.blocks.constants.tokens import Tokens
@@ -16,9 +17,7 @@ from torch import Tensor
 
 from random import shuffle
 
-from abc import ABC, abstractmethod
-
-class HandWrittingDataset(Dataset, ABC):
+class HandWrittingDataset(Dataset):
     patchified_images: torch.Tensor
     patches_padding_masks: torch.Tensor
     signals_as_tensor: list[torch.Tensor]
@@ -48,39 +47,37 @@ class HandWrittingDataset(Dataset, ABC):
 
     samples_to_take: int|float
 
-    def __init__(self, patches_dim: tuple, normalize_pixel_values: bool = True, normalize_coordinate_sequences: bool = True, 
-                 window_size: int = None, lstm_mode: bool = False, samples_to_take: int | float = None):
+    def __init__(self, signals: list[list[tuple[int, int]]], max_image_shape: tuple[int, int], patches_dim: tuple, 
+                 normalize_pixel_values: bool = True, normalize_coordinate_sequences: bool = True, lstm_mode: bool = False):
         super().__init__()
 
         self.coordinate_to_predict = None
         self.lstm_mode = lstm_mode
-        self.samples_to_take = samples_to_take
 
         self.patches_dim = patches_dim
-        self.window_size = window_size
+        self.target_image_shape = max_image_shape
 
         self.normalize_pixel_values = normalize_pixel_values
         self.normalize_coordinate_sequences = normalize_coordinate_sequences
 
         #Ask the implementationt to load the signals/images data
-        self.signals = []
-        self._load_data()
+        self.signals = signals
         logger.log(LogChannels.DATA,f"Loaded {len(self.signals)} Sequences for a total of {sum([len(signal) for signal in self.signals])} data points")
-
-    @abstractmethod
-    def _load_data(self):
-        """
-        Load_data: Private function used only by the dataset itself.
-        Classes implementing handwriting datasets must simply fill the self.signals 
-        and self.images lists from their data sources.
-        """
-        raise NotImplementedError()
+        
+        self.build_images()
     
+    @classmethod
+    def from_datasource(self, datasource: StrokeHandwrittingDataset, 
+                    patches_dim: tuple, normalize_pixel_values: bool = True, 
+                    normalize_coordinate_sequences: bool = True, lstm_mode: bool = False) -> HandWrittingDataset:
+        images_dim = tuple(reversed(datasource.signals_max_shape))
+        return HandWrittingDataset(datasource.signals, images_dim, patches_dim, normalize_pixel_values, normalize_coordinate_sequences, lstm_mode)
+
     def build_images(self):
         """
         Build all the images corresponding to this dataset signal
         """
-        logger.log(LogChannels.DATA, f"Creating images...")
+        logger.log(LogChannels.DATA, f"Creating {len(self.signals)} images...")
         self.images = [ImageHelper.create_image(signal) for signal in self.signals]
         logger.log(LogChannels.DATA, f"Images created")
     
@@ -184,7 +181,7 @@ class HandWrittingDataset(Dataset, ABC):
             return self.collate_batch_transformer
     
     ### Implementation of methods to go from numpy signals to workable tensors ###
-    def transform_to_batch(self):
+    def prepare_training_data(self):
         """Transform the data to homogeneous tensors"""
         self.images_to_tensor()
         self.sequences_to_tensor()
@@ -196,9 +193,12 @@ class HandWrittingDataset(Dataset, ABC):
         Transform all inhomogeneous images into an homogeneous tensor of padded images with its associated padding masks.
         Store both patched images and masks into class.
         """
-        #Calculate the strict maximum image shape of the dataset
-        images_widths, images_heigth = [image.shape[0] for image in self.images], [image.shape[1] for image in self.images]
-        max_image_in_dataset = (np.max(images_widths), np.max(images_heigth))
+        if self.target_image_shape is None:
+            #Calculate the strict maximum image shape of the dataset
+            images_widths, images_heigth = [image.shape[0] for image in self.images], [image.shape[1] for image in self.images]
+            max_image_in_dataset = (np.max(images_widths), np.max(images_heigth))
+        else:
+            max_image_in_dataset = self.target_image_shape
 
         #In order to have nice patching, adjust this max to be a multiple of the patch size
         self.target_image_shape = self.next_multiple_of_patch(max_image_in_dataset, self.patches_dim)
@@ -227,7 +227,7 @@ class HandWrittingDataset(Dataset, ABC):
             self.signals_as_tensor.append(signal_to_copy)
 
     def extract_all_predictable_from_tensor(self) -> torch.Tensor:
-        """Extract all the predictable values from a tensor
+        """Extract all the predictable values (datapoints) from a tensor
         ie: for a tensor of length i, generate i-1 sequences of [0:i] where the goal is to generate sequence i+1"""
         #We do not want the data to be on GPU
         coordinates_to_predict = []
@@ -267,7 +267,8 @@ class HandWrittingDataset(Dataset, ABC):
         self.batchified_patches_padding_masks = batchified_masks
         self.coordinate_to_predict = coordinates_to_predict
 
-    def next_multiple_of_patch(self, size: tuple, patch_dim: tuple):
+    @classmethod
+    def next_multiple_of_patch(cls, size: tuple, patch_dim: tuple):
         """
         Very simple util method - retrieve the width/height corresponding to the next whole multiple of the patch size
         Usefull to resize images to dimensions compatible with patch

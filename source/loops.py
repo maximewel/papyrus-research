@@ -3,7 +3,7 @@ import torch
 from torch import Tensor
 from torch.nn import MSELoss, BCEWithLogitsLoss, BCELoss
 from source.criterions.euclidian_distance import EuclideanDistanceLoss
-from source.criterions.skeletton_loss import SkelettonLoss
+from source.criterions.skeleton_loss import SkeletonLoss, SkeletonLossMode
 from source.criterions.losses_weights import LossesWeights
 from torch.optim import AdamW, Adam
 from torch.utils.data import DataLoader
@@ -20,7 +20,7 @@ LOSS_FIGURE_NAME = "train_test_losses"
 DETAILED_LOSS_FIGURE_NAME = "detailed_train_test_losses"
 
 #Only for debug
-DISPLAY_SKELETTON_LOSS = False
+DISPLAY_Skeleton_LOSS = False
 
 def create_loss_figure(train_losses: list, test_losses: list, n_epochs: int):
     losses_figure = plt.figure()
@@ -37,7 +37,7 @@ def create_loss_figure(train_losses: list, test_losses: list, n_epochs: int):
 
     return losses_figure
 
-def create_detailed_loss_figure(eos_losses: list, distance_losses: list, skeletton_losses: list, n_epochs: int, n_batches: int):
+def create_detailed_loss_figure(eos_losses: list, distance_losses: list, Skeleton_losses: list, n_epochs: int, n_batches: int):
     losses_figure = plt.figure()
     ax = losses_figure.add_subplot(111)
 
@@ -47,7 +47,7 @@ def create_detailed_loss_figure(eos_losses: list, distance_losses: list, skelett
 
     ax.plot(eos_losses, 'g', label="EOS loss")
     ax.plot(distance_losses, 'b', label="euclidian distance loss")
-    ax.plot(skeletton_losses, 'r', label="skeletton loss")
+    ax.plot(Skeleton_losses, 'r', label="Skeleton loss")
 
     for i in range(1, n_epochs+1):
         ax.axvline(x = i * n_batches, color = 'm', label = 'Epochs' if i == 1 else None)
@@ -57,11 +57,11 @@ def create_detailed_loss_figure(eos_losses: list, distance_losses: list, skelett
     return losses_figure
 
 def create_figures(train_losses: list, test_losses: list, epochs: int, batch_per_epoch: int,
-                   eos_losses: list, distance_losses: list, skeletton_losses: list) -> list[tuple]:
+                   eos_losses: list, distance_losses: list, Skeleton_losses: list) -> list[tuple]:
     figures: list[tuple[str, any]] = []
 
     figures.append((LOSS_FIGURE_NAME, create_loss_figure(train_losses, test_losses, epochs)))
-    figures.append((DETAILED_LOSS_FIGURE_NAME, create_detailed_loss_figure(eos_losses, distance_losses, skeletton_losses, epochs, batch_per_epoch)))
+    figures.append((DETAILED_LOSS_FIGURE_NAME, create_detailed_loss_figure(eos_losses, distance_losses, Skeleton_losses, epochs, batch_per_epoch)))
 
     return figures
 
@@ -93,7 +93,7 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
 
     train_losses = []
     test_losses = []
-    eos_losses, distances_losses, skeletton_losses = [], [], []
+    eos_losses, distances_losses, Skeleton_losses = [], [], []
 
     with Progress(
             TextColumn("[progress.description]{task.description}"),
@@ -105,8 +105,9 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
         # Training loop
         optimizer = Adam(model.parameters(), lr=lr)
         eos_criterion = BCEWithLogitsLoss()
-        coord_criterion = MSELoss()# EuclideanDistanceLoss()
-        skeletton_criterion = SkelettonLoss(normalized_sequences=normalized_sequences, dataset_image_shape=dataset_image_shape, display=DISPLAY_SKELETTON_LOSS)
+        coord_criterion = EuclideanDistanceLoss()
+        Skeleton_criterion = SkeletonLoss(normalized_sequences=normalized_sequences, dataset_image_shape=dataset_image_shape, 
+                                          display=DISPLAY_Skeleton_LOSS, mode=SkeletonLossMode.DIST_PIX)
 
         epoch_progress_bar = progress.add_task("[blue]Epoch...", total=n_epochs)
         batch_progress_bar = progress.add_task("[red]Batch...", total=len(train_loader))
@@ -118,6 +119,19 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
 
                 for batch in train_loader:
                     original_images, images_patches, masks, sequences, labels, stop_labels = data_from_batch(batch, device)
+                
+                    patch_im_1 = images_patches[0]
+                    import matplotlib.pyplot as plt
+
+
+                    # #Display patches - Only debug
+                    # line = 8
+                    # fig, axes = plt.subplots(1 + int(np.ceil(len(patch_im_1) / line)), line)
+                    # axes[0, 0].imshow(original_images[0], cmap='gray')
+                    # for i, patch in enumerate(patch_im_1):
+                    #     axes[1 + (i//line), i%line].imshow(patch.cpu().view(20, 20).numpy(), cmap="gray")
+                    # fig.tight_layout()
+                    # plt.show(block=True)
 
                     # Iterate over the sequences untill all are over. 
                     y_pred, eos_output = model.forward(images_patches, masks, sequences)
@@ -133,26 +147,26 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                     mask = (stop_labels == 0).squeeze(-1)
                     y_pred_no_eos = y_pred[mask]
                     labels_no_eos = labels[mask]
-                    coordLossesAsStr = [f"{labels_no_eos[i].cpu().detach().numpy()}-{y_pred_no_eos[i].cpu().detach().numpy()}" for i in range(len(labels_no_eos))]
+                    coordLossesAsStr = [f"{labels_no_eos[i].cpu().detach().numpy()}-{y_pred_no_eos[i].cpu().detach().numpy()}" for i in range(len(y_pred_no_eos))]
                     logger.log(LogChannels.LOSS_DETAILED, f"Coordinates labels-pred:{sep}{sep.join(coordLossesAsStr)}")
                     coord_loss = coord_criterion(y_pred_no_eos, labels_no_eos) * losses_weights.coord_weight
 
-                    ### SKELETTON loss ###
+                    ### Skeleton loss ###
                     last_coordinates = retrieve_last_values(sequences)
-                    skeletton_loss = skeletton_criterion(last_coordinates, y_pred.detach(), original_images) * losses_weights.skeleton_weight
+                    Skeleton_loss = Skeleton_criterion(last_coordinates, y_pred.detach(), original_images) * losses_weights.skeleton_weight
 
-                    eos_loss_as_nbr, coord_loss_as_nbr, skeletton_loss_as_nbr = eos_loss.detach().cpu().item(), coord_loss.detach().cpu().item(), skeletton_loss.detach().cpu().item()
+                    eos_loss_as_nbr, coord_loss_as_nbr, Skeleton_loss_as_nbr = eos_loss.detach().cpu().item(), coord_loss.detach().cpu().item(), Skeleton_loss.detach().cpu().item()
 
                     eos_losses.append(eos_loss_as_nbr)
                     distances_losses.append(coord_loss_as_nbr)
-                    skeletton_losses.append(skeletton_loss_as_nbr)
+                    Skeleton_losses.append(Skeleton_loss_as_nbr)
 
-                    loss = (coord_loss + eos_loss + skeletton_loss) / losses_weights.total_weights
+                    loss = (coord_loss + eos_loss + Skeleton_loss) / losses_weights.total_weights
 
                     logger.log(LogChannels.LOSSES, f"TRAIN LOOP")
                     logger.log(LogChannels.LOSSES, f"stop_loss = {eos_loss_as_nbr}")
                     logger.log(LogChannels.LOSSES, f"coord_loss = {coord_loss_as_nbr}")
-                    logger.log(LogChannels.LOSSES, f"skeletton_loss = {skeletton_loss_as_nbr}")
+                    logger.log(LogChannels.LOSSES, f"Skeleton_loss = {Skeleton_loss_as_nbr}")
                     logger.log(LogChannels.LOSSES, f"total_loss = {loss.detach().cpu().item()}\n")
 
                     optimizer.zero_grad()
@@ -197,17 +211,17 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                         labels_no_eos = labels[mask]
                         coord_loss = coord_criterion(y_pred_no_eos, labels_no_eos)
 
-                        ### SKELETTON loss ###
+                        ### Skeleton loss ###
                         last_coordinates = retrieve_last_values(sequences)
-                        skeletton_loss = skeletton_criterion(last_coordinates, y_pred.detach(), original_images)
+                        Skeleton_loss = Skeleton_criterion(last_coordinates, y_pred.detach(), original_images)
 
-                        loss = coord_loss + eos_loss + skeletton_loss
+                        loss = coord_loss + eos_loss + Skeleton_loss
                         test_loss += loss.detach().cpu().item()
 
                         logger.log(LogChannels.LOSSES, f"TEST LOOP")
                         logger.log(LogChannels.LOSSES, f"coord_loss = {coord_loss.detach().cpu().item()}")
                         logger.log(LogChannels.LOSSES, f"stop_loss = {eos_loss.detach().cpu().item()}")
-                        logger.log(LogChannels.LOSSES, f"skeletton_loss = {skeletton_loss.detach().cpu().item()}")
+                        logger.log(LogChannels.LOSSES, f"Skeleton_loss = {Skeleton_loss.detach().cpu().item()}")
                         logger.log(LogChannels.LOSSES, f"total_loss = {loss.detach().cpu().item()}")
 
                         del images_patches, masks, sequences, labels, y_pred, loss
@@ -217,10 +231,11 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                     test_losses.append(test_loss)
                 
                 progress.advance(epoch_progress_bar)
+                progress.reset(batch_progress_bar)
 
         except Exception as e:
             print(f"Stopping due to {e}")
         
         finally:
             return create_figures(train_losses, test_losses, n_epochs, len(train_loader),
-                                  eos_losses, distances_losses, skeletton_losses)
+                                  eos_losses, distances_losses, Skeleton_losses)
