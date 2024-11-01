@@ -72,8 +72,9 @@ class HwTransformer(nn.Module):
                     use_prediction_token: bool, use_lstm: bool, lstm_module: HwLstm = None,
                     hidden_dim: int = 20, enc_dec_dropout_ratio: float = 0.0,
                     encoder_patch_dimension: tuple = (20, 20), fixed_size_image_dimension: tuple = (500, 200),
-                    n_encoder_layers: int = 2, n_encoder_heads: int = 4, enc_ff_expension_ratio: int = 2, encoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.SIGMOID,
-                    n_decoder_layers: int = 4, n_decoder_heads: int = 4, dec_ff_expension_ratio: int = 2, decoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.SIGMOID, autoregressive_target_seq_len: int = 50,
+                    n_encoder_layers: int = 2, n_encoder_heads: int = 4, enc_ff_expension_ratio: int = 2, encoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.LEAKYRELU,
+                    n_decoder_layers: int = 4, n_decoder_heads: int = 4, dec_ff_expension_ratio: int = 2, decoder_ff_activation_Function: FFActivationFunction = FFActivationFunction.LEAKYRELU, 
+                    autoregressive_target_seq_len: int = 50,
                     output_dim: int = 2, make_positional_encodings_trainable: bool = False) -> None:
         
         super().__init__()

@@ -26,13 +26,13 @@ import torch
 ENCODER_HEADS = 8
 DECODER_HEADS = 8
 
-ENCODER_LAYERS = 5
-DECODER_LAYERS = 5
+ENCODER_LAYERS = 12
+DECODER_LAYERS = 12
 
 AUTOREGRESS_TARGET_LEN = 500
 
-DROPOUT_RATIO = 0.0
-BATCH_SIZE = 8
+DROPOUT_RATIO = 0.1
+BATCH_SIZE = 64
 
 PATCHES_DIM = (8, 8)
 EMBEDDING_DIMS = 256
@@ -47,9 +47,9 @@ LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 TRAIN_SIZE = 0.8
 
 LR = 0.001
-N_EPOCHS = 5
+N_EPOCHS = 30
 
-USE_BRUSH = True
+USE_BRUSH = False
 
 WEIGHT_EOS = 1
 WEIGHT_COORD = 1
@@ -59,19 +59,19 @@ if __name__ == "__main__":
     #Set logging
     # for channel in LogChannels:
     #     logger.add_log_channel(channel)
-    #logger.add_log_channel(LogChannels.TRAINING)
-    #logger.add_log_channel(LogChannels.DEBUG)
+    # logger.add_log_channel(LogChannels.TRAINING)
+    # logger.add_log_channel(LogChannels.DEBUG)
     # logger.add_log_channel(LogChannels.INIT)
-    #logger.add_log_channel(LogChannels.PARAMS)
+    # logger.add_log_channel(LogChannels.PARAMS)
     # logger.add_log_channel(LogChannels.DIMENSIONS)
     # logger.add_log_channel(LogChannels.PADDING)
-    #logger.add_log_channel(LogChannels.MASKS)
+    # logger.add_log_channel(LogChannels.MASKS)
     logger.add_log_channel(LogChannels.DATA)
     logger.add_log_channel(LogChannels.LOSSES)
     logger.add_log_channel(LogChannels.LOSS_DETAILED)
     # logger.add_log_channel(LogChannels.INTERNAL_SEQUENCE_TRACE)
 
-    #print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
+    print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
     if USE_LSTM:
         #Load pre-trained LSTM model

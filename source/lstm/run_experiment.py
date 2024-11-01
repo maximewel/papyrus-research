@@ -10,12 +10,17 @@ from source.data_management.brush.brush_dataset import BrushDataset
 from source.data_management.unipen.unipen_dataset import UnipenDataset
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
+from sklearn.model_selection import train_test_split
 
 from source.model.blocks.hw_lstm import HwLstm
 from source.logging.log import logger, LogChannels
 from datetime import datetime
 from source.model.blocks.constants.files import *
 import matplotlib.pyplot as plt
+from source.data_management.brush.brush_dataset import BrushDataset
+from source.data_management.unipen.unipen_dataset import UnipenDataset
+from source.data_management.common.handwritting_dataset import HandWrittingDataset
+
 
 import torch
 
@@ -25,8 +30,17 @@ LSTM_HIDDEN_DIM = 256
 LSTM_LAYERS = 12
 LSTM_INPUT_SIZE = 2
 
+PATCHES_DIM = (1,1)
+
 N_EPOCHS = 50
 LR = 0.001
+
+NORMALIZE_PIXEL_VALUES = False
+NORMALIZE_COORDS = False
+
+TRAIN_SIZE = 0.8
+
+USE_BRUSH = True
 
 from source.model.blocks.constants.device_helper import device
 
@@ -44,34 +58,37 @@ if __name__ == "__main__":
     #print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
     # Init data
-    dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=(1,1), save_to_file=False, lstm_mode=True, strokemode=True)
-    # dataset = UnipenDataset(unipen_root=UNIPEN_ROOT, patches_dim=(1,1), lstm_forecast_length=25)
+    if USE_BRUSH:
+        datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False)
+    else:
+        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True)
     
-    dataset.transform_to_batch()
-
-    train_size = int(0.7 * len(dataset))
-    test_size = int(0.2 * len(dataset))
-    validation_size = len(dataset) - (train_size + test_size)
-
-    train_dataset, test_dataset, validation_dataset = random_split(dataset, [train_size, test_size, validation_size])
+    #Separate signal in appropriate train, test, split
+    train_signals, test_signals = train_test_split(datasource.signals, train_size=TRAIN_SIZE)
 
     do_pin_memory = device != 'cpu'
 
-    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=dataset.get_collate_function())
-    test_loader = DataLoader(test_dataset, shuffle=False, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=dataset.get_collate_function())
+    image_max_shape = tuple(reversed(datasource.signals_max_shape))
 
-    logger.log(LogChannels.INIT, f"Using n° points to predict: Train={len(train_dataset)}, Test={len(test_dataset)}, Valid={len(validation_dataset)}")
+    train_dataset = HandWrittingDataset(train_signals, image_max_shape, PATCHES_DIM, NORMALIZE_PIXEL_VALUES, NORMALIZE_COORDS, True)
+    train_dataset.prepare_training_data()
+    test_dataset = HandWrittingDataset(test_signals, image_max_shape, PATCHES_DIM, NORMALIZE_PIXEL_VALUES, NORMALIZE_COORDS, True)
+    test_dataset.prepare_training_data()
+
+    do_pin_memory = device != 'cpu'
+
+    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=train_dataset.get_collate_function())
+    test_loader = DataLoader(test_dataset, shuffle=False, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=train_dataset.get_collate_function())
+
+    logger.log(LogChannels.INIT, f"Using n° points to predict: Train={len(train_dataset)}, Test={len(test_dataset)}")
 
     logger.log(LogChannels.INIT, f"Loading {len(train_loader)} sub-strokes batches as train, {len(test_loader)} sub-strokes batches as test")
 
     #Create model
     model = HwLstm(input_size=2, hidden_size=LSTM_HIDDEN_DIM, num_layers=LSTM_LAYERS)
-    logger.log(LogChannels.INIT, f"Loaded {len(dataset.signals_as_tensor)} sub-strokes")
     
     n_model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.log(LogChannels.PARAMS, f"Number of model parameters: {n_model_params}")
-
-    logger.log(LogChannels.INIT, f"Loaded {len(dataset.signals_as_tensor)} sub-strokes")
 
     return_figures = None
     
