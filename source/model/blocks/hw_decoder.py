@@ -103,7 +103,6 @@ class HwDecoder(nn.Module):
         # This effectively forms a mask that only allows each token to look to tokens before itself.
         causal_mask = trig_matrix.bool()
         logger.log(LogChannels.MASKS, f"Causal mask: {causal_mask.shape}\n{causal_mask}\n")
-        print(f"Causal mask:\n{causal_mask}")
         return causal_mask
     
     def forward(self, encoder_output: Tensor, target_sequence: Tensor, encoder_padding_mask: Tensor, target_padding_mask: Tensor):
@@ -117,24 +116,24 @@ class HwDecoder(nn.Module):
             target_padding_mask:    Padding mask for the target sequence, flagging uninteresting coordinates
         """
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Dimensions in decoder input (target sequence): {target_sequence.shape}")
-        target_sequence_norm = self.norm_layer_1(target_sequence)
-        msa_target_out, _ = self.target_sequence_mhsa(target_sequence_norm, target_sequence_norm, target_sequence_norm,
+
+        #First self-attention on the target sequence
+        target_sequence_normed = self.norm_layer_1(target_sequence)
+        msa_target_out, _ = self.target_sequence_mhsa(target_sequence_normed, target_sequence_normed, target_sequence_normed,
                                                       key_padding_mask=target_padding_mask, attn_mask=self.causal_mask, need_weights=False)
         msa_target_out = self.dropout_layer(msa_target_out) + target_sequence
-
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Dimensions output from self-attention: {msa_target_out.shape}")
 
+        #Cross-attention
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Dimensions output from encoder: {encoder_output.shape}")
-        msa_target_norm = self.norm_layer_2(msa_target_out)
-        input_and_target_attention, _ = self.encoder_decoder_mha(msa_target_norm, encoder_output, encoder_output, 
+        msa_target_out_normed = self.norm_layer_2(msa_target_out)
+        input_and_target_attention, _ = self.encoder_decoder_mha(msa_target_out_normed, encoder_output, encoder_output, 
                                                                 key_padding_mask = encoder_padding_mask, need_weights=False)
-        
         input_and_target_attention = self.dropout_layer(input_and_target_attention) + msa_target_out
-
         logger.log(LogChannels.DIMENSIONS, f"Decoder - after cross-attention: {input_and_target_attention.shape}")
-                
-        input_and_target_attention_norm = self.norm_layer_3(input_and_target_attention)
-        ffn_output = self.feed_forward(input_and_target_attention_norm)
+        
+        input_and_target_attention_normed = self.norm_layer_3(input_and_target_attention)
+        ffn_output = self.feed_forward(input_and_target_attention_normed)
         ffn_output = self.dropout_layer(ffn_output) + input_and_target_attention
         logger.log(LogChannels.DIMENSIONS, f"Decoder - Final output dimension after ffn: {ffn_output.shape}")
 

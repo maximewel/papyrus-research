@@ -1,20 +1,16 @@
 from source.logging.log import logger, LogChannels
 
 from source.data_management.unipen.handlers.handler_builder import UnipenHandlerBuilder
-from source.data_management.common.stroked_handwriting_dataset import StrokedHandwrittingDataset
+from source.data_management.common.stroke_handwriting_dataset import StrokeHandwrittingDataset
 
-class UnipenDataset(StrokedHandwrittingDataset):
+class UnipenDataset(StrokeHandwrittingDataset):
     unipen_root: str
 
-    def __init__(self, unipen_root: str, patches_dim, strokemode: bool = True, normalize_pixel_values = True, 
-                 normalize_coordinate_sequences = True, 
-                 window_size = None, lstm_mode: bool = None,
-                 samples_to_take: int|float = None):
+    def __init__(self, unipen_root: str, separate_strokes: bool = True, image_max_shape: tuple[int, int] = None, window_size: int = None):
         self.unipen_root = unipen_root
         
-        super().__init__(patches_dim, strokemode, normalize_pixel_values, normalize_coordinate_sequences, window_size, lstm_mode, samples_to_take)
+        super().__init__(separate_strokes, image_max_shape, window_size)
     
-    #Override
     def _load_data(self):
         """Load all the signals and images"""
         self.load_raw_data()
@@ -31,7 +27,7 @@ class UnipenDataset(StrokedHandwrittingDataset):
         logger.log(LogChannels.DATA, f"Unipen - built {len(handlers)} handlers")
 
         #Ask each handler to retrieve its data, retrieve it internally
-        logger.log(LogChannels.DATA, f"Unipen - Creating strokes...")
+        logger.log(LogChannels.DATA, f"Unipen - Retrieving original signals...")
         total_len = len(handlers)
         ind = 1
         for handler in handlers:
@@ -39,11 +35,4 @@ class UnipenDataset(StrokedHandwrittingDataset):
             handler.create_strokes()
             self.signals.extend(handler.strokes)
             ind += 1
-        logger.log(LogChannels.DATA, f"Stroke creation done")
-
-        self.apply_all_preprocess_to_signals()
-
-        if self.samples_to_take is not None:
-            self.take_samples_of_dataset(self.samples_to_take)
-
-        self.build_images()
+        logger.log(LogChannels.DATA, f"original Signals loaded")

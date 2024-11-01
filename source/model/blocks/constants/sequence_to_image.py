@@ -7,7 +7,7 @@ class ImageHelper():
     DRAW_COLOR_WHITE = 1
     DRAW_COLOR_BLACK = 0
     DRAW_COLOR_SIZE = 1
-    PADDING_RIGHT_BOTTOM = 2
+    PADDING_RIGHT_BOTTOM = 3
 
     @classmethod
     def is_eos_token(cls, x, y):

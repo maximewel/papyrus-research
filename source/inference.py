@@ -7,6 +7,8 @@ sys.path.insert(0, project_root)
 from source.model.blocks.constants.files import *
 
 from source.data_management.brush.brush_dataset import BrushDataset
+from source.data_management.unipen.unipen_dataset import UnipenDataset
+from source.data_management.common.handwritting_dataset import HandWrittingDataset
 from source.model.hw_model import HwTransformer
 from source.model.blocks.hw_lstm import HwLstm
 from source.model.blocks.constants.files import *
@@ -18,7 +20,8 @@ from source.model.blocks.constants.tokens import Tokens
 import torch
 import matplotlib.pyplot as plt
 
-folder_model_to_load = "2024-10-26 23-21-31"
+folder_model_to_load = "2024-11-01 18-31-33"
+USE_LSTM = False
 folder_lstm_model_to_load = "2024-10-24 22-39-02"
 
 PATCHES_DIM = (8, 8)
@@ -27,9 +30,9 @@ MIN_DIM_SHOWOFF = 50
 
 STOP_CONDITION_IDENTICAL_OUTPUTS = 5
 
-DENORMALIZE_SEQUENCES = True
+DENORMALIZE_SEQUENCES = False
 
-REPLACE_WITH_GOLDEN = False
+REPLACE_WITH_GOLDEN = True
 
 tolerance = 0.0001
 def has_identical_last_values(tensor, n: int) -> bool:
@@ -38,23 +41,21 @@ def has_identical_last_values(tensor, n: int) -> bool:
     are_identical = torch.all(torch.abs(last_rows - last_rows[0, :]) < tolerance, dim=1).all()    
     return are_identical.item()
 
-def image_from_result(resultSignal, mult_tensor):
+def image_from_result(resultSignal, mult_tensor, target_size):
     """
         Create an image from the result
         Security: If negative coordinates exist, adjust image
     """
-    print(f"Result signal shape: {resultSignal.shape}")
     for dim in [0, 1]:
         min_dim = torch.min(resultSignal[:, dim])
         if min_dim < 0 and min_dim != Tokens.COORDINATE_SEQUENCE_EOS.value:
-            print(f"Adding {-min_dim} to dim {dim}")
             resultSignal[:-1, dim] += -min_dim
 
     resultSignalAsInt = (resultSignal * mult_tensor).int()
     #Pad to obtain original third dimension, 'penup'
     resultSignalAsInt = torch.nn.functional.pad(resultSignalAsInt, (0, 1))
-    result_image = ImageHelper.create_image(resultSignalAsInt.cpu().numpy())
-    return ImageHelper.revert_image(result_image)
+    result_image = ImageHelper.create_image(resultSignalAsInt.cpu().numpy(), target_size)
+    return result_image
 
 if __name__ == "__main__":
         folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, TRANSFORMER_FOLDER, folder_model_to_load)
@@ -65,7 +66,7 @@ if __name__ == "__main__":
         model: HwTransformer = torch.load(filepath)
         model.eval()
 
-        if folder_lstm_model_to_load is not None:
+        if USE_LSTM:
             #Load pre-trained LSTM model
             folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, LSTM_FOLDER, folder_lstm_model_to_load)
             filepath = os.path.join(folderPath, MODEL_FILENAME)
@@ -77,9 +78,14 @@ if __name__ == "__main__":
             lstm_model = None
 
         # Init data
-        dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=PATCHES_DIM, save_to_file=False, strokemode=True, 
-                               normalize_coordinate_sequences=True, normalize_pixel_values=True)
-        dataset.transform_to_batch()
+        # datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False)
+        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=(80, 160))
+        
+        valid_signals = sorted(datasource.signals, key = lambda signal: len(signal), reverse=True)[:50]
+
+        dataset = HandWrittingDataset(valid_signals, tuple(reversed(datasource.signals_max_shape)), PATCHES_DIM, False, DENORMALIZE_SEQUENCES, False)
+        dataset.prepare_training_data()
+
         unfolder = torch.nn.Fold(output_size=dataset.target_image_shape, kernel_size=PATCHES_DIM, stride=PATCHES_DIM)
         
         mult_tensor = torch.tensor(dataset.target_image_shape, dtype=int, device=device) if DENORMALIZE_SEQUENCES else 1
@@ -113,7 +119,7 @@ if __name__ == "__main__":
 
             #Re-create images for both
             orig_image = dataset.images[nextIndex]
-            orig_image_reconstructed = image_from_result(originalSignal, mult_tensor)
+            orig_image_reconstructed = image_from_result(originalSignal, mult_tensor, dataset.target_image_shape)
             patched_image_unfolded = unfolder(image.cpu().unsqueeze(0).permute(0,2,1))[0][0].numpy()
 
             print(orig_image)
@@ -126,7 +132,7 @@ if __name__ == "__main__":
                 resultSignal = originalSignal[:1]
                 working_signal = originalSignal[:1]
 
-                result_image = image_from_result(resultSignal, mult_tensor)
+                result_image = image_from_result(resultSignal, mult_tensor, dataset.target_image_shape)
                 result_display = axs[3].imshow(result_image, cmap='gray', vmin=0, vmax=1)
 
                 stop_signal = False
@@ -149,7 +155,7 @@ if __name__ == "__main__":
                     else:
                         working_signal = torch.vstack([working_signal, res])
 
-                    result_image = image_from_result(resultSignal, mult_tensor)
+                    result_image = image_from_result(resultSignal, mult_tensor, dataset.target_image_shape)
                     result_display.set_data(result_image)
 
                     fig.canvas.draw()  # Redraw the canvas
