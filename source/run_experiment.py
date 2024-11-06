@@ -132,6 +132,8 @@ if __name__ == "__main__":
     weight_coord = float(os.getenv('WEIGHT_COORD', WEIGHT_COORD))
     weight_skeleton = float(os.getenv('WEIGHT_SKELETON', WEIGHT_SKELETON))
 
+    make_positional_encoding_learnable = bool(int(os.getenv('MAKE_POSITIONAL_ENCODING_LEARNABLE', int(MAKE_POSITIONAL_ENCODING_LEARNABLE))))
+
     if use_lstm:
         #Load pre-trained LSTM model
         folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, LSTM_FOLDER, LSTM_MODEL_PATH)
@@ -189,7 +191,7 @@ if __name__ == "__main__":
                           n_decoder_layers=decoder_layers, n_decoder_heads=decoder_heads,
                           encoder_patch_dimension=patches_dim, fixed_size_image_dimension=train_dataset.target_image_shape,
                           autoregressive_target_seq_len=autoregress_target_len,
-                          make_positional_encodings_trainable=False)
+                          make_positional_encodings_trainable=make_positional_encoding_learnable)
 
     n_model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.log(LogChannels.PARAMS, f"Number of model parameters: {n_model_params}")

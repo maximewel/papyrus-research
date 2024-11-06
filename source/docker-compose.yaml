@@ -42,7 +42,7 @@ services:
       ENCODER_LAYERS: 8
       DECODER_LAYERS: 8
       AUTOREGRESS_TARGET_LEN: 500
-      MAKE_POSITIONAL_ENCODING_LEARNABLE: False
+      MAKE_POSITIONAL_ENCODING_LEARNABLE: 0
 
     # Set the working directory
     working_dir: /workspace
