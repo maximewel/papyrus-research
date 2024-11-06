@@ -22,6 +22,8 @@ from source.model.blocks.constants.device_helper import device
 from source.criterions.losses_weights import LossesWeights
 
 import torch
+import random
+import numpy as np
 
 ENCODER_HEADS = 8
 DECODER_HEADS = 8
@@ -30,6 +32,8 @@ ENCODER_LAYERS = 12
 DECODER_LAYERS = 12
 
 AUTOREGRESS_TARGET_LEN = 500
+
+MAKE_POSITIONAL_ENCODING_LEARNABLE = False
 
 DROPOUT_RATIO = 0.1
 BATCH_SIZE = 64
@@ -44,6 +48,7 @@ USE_PREDICTION_TOKEN = False
 USE_LSTM = False
 LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
+DATASET_SIZE = 1.0
 TRAIN_SIZE = 0.8
 
 LR = 0.001
@@ -54,6 +59,29 @@ USE_BRUSH = False
 WEIGHT_EOS = 1
 WEIGHT_COORD = 1
 WEIGHT_SKELETON = 1
+
+def save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder_layers, autoregress_target_len, dropout_ratio, batch_size, patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path, lr, n_epochs, use_brush, model, return_figures):
+    date = datetime.now().strftime('%Y-%m-%d %H-%M-%S')
+    folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, TRANSFORMER_FOLDER, f"{date}")
+    os.makedirs(folderPath, exist_ok=True)
+
+    filepath = os.path.join(folderPath, MODEL_FILENAME)
+    print(f"Saving model to: {filepath}")
+    torch.save(model, filepath)
+
+    if return_figures is not None:
+        for fig_name, figure in return_figures:
+            filepath = os.path.join(folderPath, f"{fig_name}.png")
+            print(f"Saving figure {fig_name} to {filepath}")
+            figure.savefig(filepath)
+        
+    filepath = os.path.join(folderPath, ID_CARD_FILE)
+    id_card = IdCardCreator.create_transfo_id_card(use_brush, lr, n_epochs, batch_size, 
+                                                       encoder_layers, decoder_layers, encoder_heads, decoder_heads, 
+                                                       dropout_ratio, autoregress_target_len, 
+                                                       patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path)
+    with open(filepath, "w+") as f:
+        f.write(id_card)
 
 if __name__ == "__main__":
     #Set logging
@@ -73,7 +101,38 @@ if __name__ == "__main__":
 
     print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
-    if USE_LSTM:
+    encoder_heads = int(os.getenv('ENCODER_HEADS', ENCODER_HEADS))
+    decoder_heads = int(os.getenv('DECODER_HEADS', DECODER_HEADS))
+    encoder_layers = int(os.getenv('ENCODER_LAYERS', ENCODER_LAYERS))
+    decoder_layers = int(os.getenv('DECODER_LAYERS', DECODER_LAYERS))
+    autoregress_target_len = int(os.getenv('AUTOREGRESS_TARGET_LEN', AUTOREGRESS_TARGET_LEN))
+
+    dropout_ratio = float(os.getenv('DROPOUT_RATIO', DROPOUT_RATIO))
+    batch_size = int(os.getenv('BATCH_SIZE', BATCH_SIZE))
+    
+    patches_dim = tuple(map(int, os.getenv('PATCHES_DIM', ','.join(map(str, PATCHES_DIM))).split(',')))
+    embedding_dims = int(os.getenv('EMBEDDING_DIMS', EMBEDDING_DIMS))
+
+    normalize_coords = bool(int(os.getenv('NORMALIZE_COORDS', int(NORMALIZE_COORDS))))
+    normalize_pixel_values = bool(int(os.getenv('NORMALIZE_PIXEL_VALUES', int(NORMALIZE_PIXEL_VALUES))))
+
+    use_prediction_token = bool(int(os.getenv('USE_PREDICTION_TOKEN', int(USE_PREDICTION_TOKEN))))
+    use_lstm = bool(int(os.getenv('USE_LSTM', int(USE_LSTM))))
+    lstm_model_path = os.getenv('LSTM_MODEL_PATH', LSTM_MODEL_PATH)
+
+    train_size = float(os.getenv('TRAIN_SIZE', TRAIN_SIZE))
+    dataset_size = float(os.getenv('DATASET_SIZE', DATASET_SIZE))
+
+    lr = float(os.getenv('LR', LR))
+    n_epochs = int(os.getenv('N_EPOCHS', N_EPOCHS))
+
+    use_brush = bool(int(os.getenv('USE_BRUSH', int(USE_BRUSH))))
+
+    weight_eos = float(os.getenv('WEIGHT_EOS', WEIGHT_EOS))
+    weight_coord = float(os.getenv('WEIGHT_COORD', WEIGHT_COORD))
+    weight_skeleton = float(os.getenv('WEIGHT_SKELETON', WEIGHT_SKELETON))
+
+    if use_lstm:
         #Load pre-trained LSTM model
         folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, LSTM_FOLDER, LSTM_MODEL_PATH)
         filepath = os.path.join(folderPath, MODEL_FILENAME)
@@ -86,38 +145,50 @@ if __name__ == "__main__":
         lstm_model = None
 
     #Create stroke-level signals
-    if USE_BRUSH:
+    if use_brush:
         datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False)
     else:
         datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True)
+
+    signals_to_take: list = None
+    if(dataset_size < 0 or dataset_size > 1):
+        raise Exception(f"Please use dataset size between 0 and 1, not {dataset_size}")
+    else:
+        if dataset_size == 1:
+            signals_to_take = datasource.signals
+        else:
+            datasource_len = len(datasource.signals)
+            n_samples_to_take = int(np.round(dataset_size * datasource_len))
+            logger.log(LogChannels.DATA, f"Restricting to {dataset_size} of dataset ({n_samples_to_take}/{datasource_len} signals)")
+            signals_to_take = random.sample(datasource.signals, n_samples_to_take)
     
     #Separate signal in appropriate train, test, split
-    train_signals, test_signals = train_test_split(datasource.signals, train_size=TRAIN_SIZE)
+    train_signals, test_signals = train_test_split(signals_to_take, train_size=train_size)
 
     do_pin_memory = device != 'cpu'
 
     image_max_shape = tuple(reversed(datasource.signals_max_shape))
 
-    train_dataset = HandWrittingDataset(train_signals, image_max_shape, PATCHES_DIM, NORMALIZE_PIXEL_VALUES, NORMALIZE_COORDS, False)
+    train_dataset = HandWrittingDataset(train_signals, image_max_shape, patches_dim, normalize_pixel_values, normalize_coords, False)
     train_dataset.prepare_training_data()
-    test_dataset = HandWrittingDataset(test_signals, image_max_shape, PATCHES_DIM, NORMALIZE_PIXEL_VALUES, NORMALIZE_COORDS, False)
+    test_dataset = HandWrittingDataset(test_signals, image_max_shape, patches_dim, normalize_pixel_values, normalize_coords, False)
     test_dataset.prepare_training_data()
 
     logger.log(LogChannels.INIT, f"Using n° points to predict: Train={len(train_dataset)}, Test={len(test_dataset)}")
 
-    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=train_dataset.get_collate_function())
-    test_loader = DataLoader(test_dataset, shuffle=False, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=test_dataset.get_collate_function())
+    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size, pin_memory=do_pin_memory, collate_fn=train_dataset.get_collate_function())
+    test_loader = DataLoader(test_dataset, shuffle=False, batch_size=batch_size, pin_memory=do_pin_memory, collate_fn=test_dataset.get_collate_function())
 
     logger.log(LogChannels.INIT, f"Loading {len(train_loader)} sub-strokes batches as train, {len(test_loader)} sub-strokes batches as test")
     
-    losses_weights = LossesWeights(WEIGHT_EOS, WEIGHT_COORD, WEIGHT_SKELETON)
+    losses_weights = LossesWeights(weight_eos, weight_coord, weight_skeleton)
     #Init the transformer model
-    model = HwTransformer(use_prediction_token=USE_PREDICTION_TOKEN, hidden_dim=EMBEDDING_DIMS,
-                          use_lstm=USE_LSTM, lstm_module=lstm_model,
-                          n_encoder_layers=ENCODER_LAYERS, n_encoder_heads=ENCODER_HEADS, enc_dec_dropout_ratio=DROPOUT_RATIO,
-                          n_decoder_layers=DECODER_LAYERS, n_decoder_heads=DECODER_HEADS,
-                          encoder_patch_dimension=PATCHES_DIM, fixed_size_image_dimension=train_dataset.target_image_shape,
-                          autoregressive_target_seq_len=AUTOREGRESS_TARGET_LEN,
+    model = HwTransformer(use_prediction_token=use_prediction_token, hidden_dim=embedding_dims,
+                          use_lstm=use_lstm, lstm_module=lstm_model,
+                          n_encoder_layers=encoder_layers, n_encoder_heads=encoder_heads, enc_dec_dropout_ratio=dropout_ratio,
+                          n_decoder_layers=decoder_layers, n_decoder_heads=decoder_heads,
+                          encoder_patch_dimension=patches_dim, fixed_size_image_dimension=train_dataset.target_image_shape,
+                          autoregressive_target_seq_len=autoregress_target_len,
                           make_positional_encodings_trainable=False)
 
     n_model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -125,28 +196,11 @@ if __name__ == "__main__":
 
     #Start training
     try:
-        return_figures = do_training(model, train_loader, test_loader, device, N_EPOCHS, LR, NORMALIZE_COORDS, train_dataset.target_image_shape, losses_weights)
+        return_figures = do_training(model, train_loader, test_loader, device, n_epochs, lr, normalize_coords, train_dataset.target_image_shape, losses_weights)
     except Exception as e:
         print(f"Encountered exception while training model: {e}")
         raise e
     except KeyboardInterrupt:
         print(f"Training interrupted")
     finally:
-        date = datetime.now().strftime('%Y-%m-%d %H-%M-%S')
-        folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, TRANSFORMER_FOLDER, f"{date}")
-        os.makedirs(folderPath, exist_ok=True)
-
-        filepath = os.path.join(folderPath, MODEL_FILENAME)
-        print(f"Saving model to: {filepath}")
-        torch.save(model, filepath)
-
-        if return_figures is not None:
-            for fig_name, figure in return_figures:
-                filepath = os.path.join(folderPath, f"{fig_name}.png")
-                print(f"Saving figure {fig_name} to {filepath}")
-                figure.savefig(filepath)
-        
-        filepath = os.path.join(folderPath, ID_CARD_FILE)
-        id_card = IdCardCreator.create_transfo_id_card(USE_BRUSH, LR, N_EPOCHS, BATCH_SIZE, ENCODER_LAYERS, DECODER_LAYERS, ENCODER_HEADS, DECODER_HEADS, DROPOUT_RATIO, AUTOREGRESS_TARGET_LEN, PATCHES_DIM, EMBEDDING_DIMS, USE_PREDICTION_TOKEN, USE_LSTM, LSTM_MODEL_PATH)
-        with open(filepath, "w+") as f:
-            f.write(id_card)
+        save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder_layers, autoregress_target_len, dropout_ratio, batch_size, patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path, lr, n_epochs, use_brush, model, return_figures)
