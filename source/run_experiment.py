@@ -150,7 +150,7 @@ if __name__ == "__main__":
     if use_brush:
         datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False)
     else:
-        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True)
+        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=(150, 150))
 
     signals_to_take: list = None
     if(dataset_size < 0 or dataset_size > 1):
