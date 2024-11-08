@@ -43,16 +43,25 @@ def create_detailed_loss_figure(eos_losses: list, distance_losses: list, Skeleto
 
     ax.set_title(f'Detailed of the losses, transformer model, {n_epochs} epochs')
     ax.set_xlabel("Batch")
-    ax.set_ylabel("Loss")
+    ax.set_ylabel("EOS/Skeleton Loss")
 
     ax.plot(eos_losses, 'g', label="EOS loss")
-    ax.plot(distance_losses, 'b', label="euclidian distance loss")
     ax.plot(Skeleton_losses, 'r', label="Skeleton loss")
+    twin_ax = ax.twinx()
+    twin_ax.set_ylabel("Coordinate euclidian loss")
+    twin_ax.plot(distance_losses, 'b', label="euclidian distance loss")
 
+    total_batches_processed = len(eos_losses)
+    ax.set_xlim([0, total_batches_processed])
+
+    #Plot every epoch up untill last registered loss (If training is stopped before end, there will be less epochs than expected)
     for i in range(1, n_epochs+1):
-        ax.axvline(x = i * n_batches, color = 'm', label = 'Epochs' if i == 1 else None)
+        if (i * n_batches) > total_batches_processed:
+            break
+        ax.axvline(x = i * n_batches, color = 'm', linestyle='--', label = 'Epochs' if i == 1 else None)
 
     ax.legend()
+    twin_ax.legend()
 
     return losses_figure
 

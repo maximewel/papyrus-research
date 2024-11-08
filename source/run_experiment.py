@@ -21,6 +21,7 @@ from source.model.blocks.helper.id_card_creator import IdCardCreator
 from source.model.blocks.constants.device_helper import device
 from source.criterions.losses_weights import LossesWeights
 
+import pickle
 import torch
 import random
 import numpy as np
@@ -36,7 +37,7 @@ AUTOREGRESS_TARGET_LEN = 500
 MAKE_POSITIONAL_ENCODING_LEARNABLE = False
 
 DROPOUT_RATIO = 0.1
-BATCH_SIZE = 64
+BATCH_SIZE = 8
 
 PATCHES_DIM = (8, 8)
 EMBEDDING_DIMS = 256
@@ -48,13 +49,13 @@ USE_PREDICTION_TOKEN = False
 USE_LSTM = False
 LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
-DATASET_SIZE = 1.0
+DATASET_SIZE = 0.001
 TRAIN_SIZE = 0.8
 
 LR = 0.001
-N_EPOCHS = 30
+N_EPOCHS = 5
 
-USE_BRUSH = False
+USE_BRUSH = True
 
 WEIGHT_EOS = 1
 WEIGHT_COORD = 1
@@ -71,9 +72,13 @@ def save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder
 
     if return_figures is not None:
         for fig_name, figure in return_figures:
-            filepath = os.path.join(folderPath, f"{fig_name}.png")
-            print(f"Saving figure {fig_name} to {filepath}")
-            figure.savefig(filepath)
+            imagepath = os.path.join(folderPath, f"{fig_name}.png")
+            print(f"Saving figure image {fig_name} to {imagepath}")
+            figure.savefig(imagepath)
+            
+            filepath = os.path.join(folderPath, f"{fig_name}.pickle")
+            with open(filepath, 'wb') as f:
+                pickle.dump(figure, f)
         
     filepath = os.path.join(folderPath, ID_CARD_FILE)
     id_card = IdCardCreator.create_transfo_id_card(use_brush, lr, n_epochs, batch_size, 
