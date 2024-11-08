@@ -169,16 +169,11 @@ class HwTransformer(nn.Module):
         if self.use_prediction_token:
             self.prediction_token = nn.Parameter(torch.rand(1, self.hidden_dim))
             self.output_mlp = nn.Linear(self.hidden_dim, self.output_dim)
-            self.stop_signal_output = nn.Linear(self.hidden_dim, 1)
         else:
             decoder_dim = self.autoregressive_target_seq_len
             if self.use_lstm:
                 decoder_dim += 1
             self.output_mlp = nn.Linear(decoder_dim * self.hidden_dim , self.output_dim)
-            #Output signal indicating whether to end the signal on the next prediction. Result in a single value
-            self.stop_signal_output = nn.Linear(decoder_dim * self.hidden_dim, 1)
-        # nn.init.xavier_uniform_(self.output_mlp.weight)
-        # nn.init.xavier_uniform_(self.stop_signal_output.weight)
 
     def normalize_target_sequences(self, target_sequences: PackedSequence) -> tuple[Tensor, Tensor]:
         """Normalize the target sequences and generate the relevant padding mask
@@ -311,14 +306,11 @@ class HwTransformer(nn.Module):
             #In the case of the prediction token, extract said token from decoder and do all computations on it
             prediction_token = decoder_out[:, 0]
             final_output = self.output_mlp(prediction_token)
-            stop_signal_output = self.stop_signal_output(prediction_token)
         else:
             # Otherwise, Pass output through final layer to obtain correct length
             # Reshape to [batch_size, seq_len * seq_dim] and send to final MLP
             flattened_decoder_out = torch.flatten(decoder_out, start_dim=1)
             final_output = self.output_mlp(flattened_decoder_out)
-            # Signal output takes the same flattened decoder output and transforms it into a boolean value
-            stop_signal_output = self.stop_signal_output(flattened_decoder_out)
         
         logger.log(LogChannels.INTERNAL_SEQUENCE_TRACE, f"Transformer - Final output : {final_output}")
-        return final_output, stop_signal_output
+        return final_output

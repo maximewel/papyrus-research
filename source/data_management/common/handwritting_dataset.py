@@ -207,6 +207,7 @@ class HandWrittingDataset(Dataset):
 
         patchificator = Patchificator(self.patches_dim, self.target_image_shape)
 
+        logger.log(LogChannels.DATA, f"Patchifying images... {self.target_image_shape}")
         self.patchified_images, self.patches_padding_masks = patchificator.normalize_patchify_images(self.images, normalize_value=self.normalize_pixel_values)
     
     def sequences_to_tensor(self):
