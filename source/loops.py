@@ -126,8 +126,6 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                 for batch in train_loader:
                     original_images, images_patches, masks, sequences, labels = data_from_batch(batch, device)
 
-                    print(f"Length: {len(original_images)}")
-
                     # Iterate over the sequences untill all are over. 
                     y_pred = model.forward(images_patches, masks, sequences)
 

@@ -92,7 +92,7 @@ def do_training(model: HwLstm, train_loader: DataLoader, test_loader: DataLoader
                 with torch.no_grad():
                     test_loss = 0.0
                     for batch in test_loader:
-                        packed_sequences, labels = batch, device
+                        packed_sequences, labels = batch
                         packed_sequences, labels = packed_sequences.to(device), labels.to(device)
 
                         # Iterate over the sequences untill all are over. 
