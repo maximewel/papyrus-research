@@ -20,9 +20,9 @@ from source.model.blocks.constants.tokens import Tokens
 import torch
 import matplotlib.pyplot as plt
 
-folder_model_to_load = "2024-11-01 18-31-33"
+folder_model_to_load = "brush_predToken_4epochs"
 USE_LSTM = False
-folder_lstm_model_to_load = "2024-10-24 22-39-02"
+folder_lstm_model_to_load = "brush_100.150_n_ep50_Notnormalized"
 
 PATCHES_DIM = (8, 8)
 
@@ -32,7 +32,7 @@ STOP_CONDITION_IDENTICAL_OUTPUTS = 5
 
 DENORMALIZE_SEQUENCES = False
 
-REPLACE_WITH_GOLDEN = True
+REPLACE_WITH_GOLDEN = False
 
 tolerance = 0.0001
 def has_identical_last_values(tensor, n: int) -> bool:
@@ -78,8 +78,11 @@ if __name__ == "__main__":
             lstm_model = None
 
         # Init data
-        # datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False)
-        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=(80, 160))
+
+        from source.logging.log import logger, LogChannels
+        logger.add_log_channel(LogChannels.DATA)
+        # datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False, image_max_shape=(36, 50))
+        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=(36, 50))
         
         valid_signals = sorted(datasource.signals, key = lambda signal: len(signal), reverse=True)[:50]
 
@@ -122,7 +125,6 @@ if __name__ == "__main__":
             orig_image_reconstructed = image_from_result(originalSignal, mult_tensor, dataset.target_image_shape)
             patched_image_unfolded = unfolder(image.cpu().unsqueeze(0).permute(0,2,1))[0][0].numpy()
 
-            print(orig_image)
             axs[0].imshow(orig_image, cmap='gray')
             axs[1].imshow(orig_image_reconstructed, cmap='gray')
             axs[2].imshow(patched_image_unfolded, cmap='gray')
@@ -145,7 +147,10 @@ if __name__ == "__main__":
                     print(f"Last 5 result:\n{resultSignal[-5:]}")
                     print(f"Last 5 working:\n{working_signal[-5:]}")
 
-                    res, eos_logit = model.forward(image.unsqueeze(0), padding.unsqueeze(0), pack_sequence(working_signal.unsqueeze(0)))
+                    res = model.forward(image.unsqueeze(0), padding.unsqueeze(0), pack_sequence(working_signal.unsqueeze(0)))
+                    if not DENORMALIZE_SEQUENCES:
+                        res = torch.round(res)
+                        
                     #Used to avoid OOM during autoregression
                     res = res.detach()
                     print(f"Generated {res}")
@@ -161,13 +166,8 @@ if __name__ == "__main__":
                     fig.canvas.draw()  # Redraw the canvas
                     fig.canvas.flush_events()  # Flush any GUI events
 
-                    # Apply sigmoid to get the stop probability, convert using standard 
-                    stop_probability = torch.sigmoid(eos_logit)
-                    print(f"stop proba: {stop_probability}")
                     # Check if we should stop
-                    stop_signal |= stop_probability >= 0.5
-
-                    if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS) or (REPLACE_WITH_GOLDEN and i >= len(current_signal)):
+                    if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS) or (REPLACE_WITH_GOLDEN and i >= len(current_signal)) or (i > 500):
                         print(f"Early stop - identical values loop detected in the last {STOP_CONDITION_IDENTICAL_OUTPUTS} outputs")
                         stop_signal = True
 

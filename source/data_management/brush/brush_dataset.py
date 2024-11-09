@@ -64,8 +64,6 @@ class BrushDataset(StrokeHandwrittingDataset):
         i = 0
         for writer_id in writer_ids:
             i += 1
-            if i >= 2:
-                break
             writer_path = os.path.join(raw_root, writer_id)
             #Each drawin is present in three examplaries: n, n_resample20 and n_resample25
             #base dataloader selects default (10ms)

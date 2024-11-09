@@ -49,15 +49,15 @@ USE_PREDICTION_TOKEN = False
 USE_LSTM = False
 LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
-DATASET_SIZE = 0.001
+DATASET_SIZE = 1
 TRAIN_SIZE = 0.8
+IMAGE_MAX_SHAPE = (100, 150)
 
 LR = 0.001
 N_EPOCHS = 5
 
 USE_BRUSH = True
 
-WEIGHT_EOS = 1
 WEIGHT_COORD = 1
 WEIGHT_SKELETON = 1
 
@@ -111,6 +111,8 @@ if __name__ == "__main__":
     encoder_layers = int(os.getenv('ENCODER_LAYERS', ENCODER_LAYERS))
     decoder_layers = int(os.getenv('DECODER_LAYERS', DECODER_LAYERS))
     autoregress_target_len = int(os.getenv('AUTOREGRESS_TARGET_LEN', AUTOREGRESS_TARGET_LEN))
+    
+    image_max_shape = tuple(map(int, os.getenv('PATCHES_DIM', ','.join(map(str, IMAGE_MAX_SHAPE))).split(',')))
 
     dropout_ratio = float(os.getenv('DROPOUT_RATIO', DROPOUT_RATIO))
     batch_size = int(os.getenv('BATCH_SIZE', BATCH_SIZE))
@@ -133,7 +135,6 @@ if __name__ == "__main__":
 
     use_brush = bool(int(os.getenv('USE_BRUSH', int(USE_BRUSH))))
 
-    weight_eos = float(os.getenv('WEIGHT_EOS', WEIGHT_EOS))
     weight_coord = float(os.getenv('WEIGHT_COORD', WEIGHT_COORD))
     weight_skeleton = float(os.getenv('WEIGHT_SKELETON', WEIGHT_SKELETON))
 
@@ -153,9 +154,9 @@ if __name__ == "__main__":
 
     #Create stroke-level signals
     if use_brush:
-        datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False)
+        datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False, image_max_shape=image_max_shape)
     else:
-        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=(150, 150))
+        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=image_max_shape)
 
     signals_to_take: list = None
     if(dataset_size < 0 or dataset_size > 1):
@@ -188,7 +189,7 @@ if __name__ == "__main__":
 
     logger.log(LogChannels.INIT, f"Loading {len(train_loader)} sub-strokes batches as train, {len(test_loader)} sub-strokes batches as test")
     
-    losses_weights = LossesWeights(weight_eos, weight_coord, weight_skeleton)
+    losses_weights = LossesWeights(weight_coord, weight_skeleton)
     #Init the transformer model
     model = HwTransformer(use_prediction_token=use_prediction_token, hidden_dim=embedding_dims,
                           use_lstm=use_lstm, lstm_module=lstm_model,

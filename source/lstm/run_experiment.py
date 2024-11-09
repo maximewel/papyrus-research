@@ -19,7 +19,6 @@ from source.data_management.brush.brush_dataset import BrushDataset
 from source.data_management.unipen.unipen_dataset import UnipenDataset
 from source.data_management.common.handwritting_dataset import HandWrittingDataset
 
-
 import torch
 
 BATCH_SIZE = 256
@@ -36,7 +35,7 @@ LR = 0.001
 TARGET_IMAGE_SIZE = (100, 150)
 
 NORMALIZE_PIXEL_VALUES = False
-NORMALIZE_COORDS = True
+NORMALIZE_COORDS = False
 
 TRAIN_SIZE = 0.8
 
