@@ -9,14 +9,12 @@ from source.lstm.lstm_loop import do_training
 from source.data_management.brush.brush_dataset import BrushDataset
 from source.data_management.unipen.unipen_dataset import UnipenDataset
 from torch.utils.data import DataLoader
-from torch.utils.data import random_split
 from sklearn.model_selection import train_test_split
 
 from source.model.blocks.hw_lstm import HwLstm
 from source.logging.log import logger, LogChannels
 from datetime import datetime
 from source.model.blocks.constants.files import *
-import matplotlib.pyplot as plt
 from source.data_management.brush.brush_dataset import BrushDataset
 from source.data_management.unipen.unipen_dataset import UnipenDataset
 from source.data_management.common.handwritting_dataset import HandWrittingDataset
@@ -35,8 +33,10 @@ PATCHES_DIM = (1,1)
 N_EPOCHS = 50
 LR = 0.001
 
+TARGET_IMAGE_SIZE = (100, 150)
+
 NORMALIZE_PIXEL_VALUES = False
-NORMALIZE_COORDS = False
+NORMALIZE_COORDS = True
 
 TRAIN_SIZE = 0.8
 
@@ -51,17 +51,17 @@ if __name__ == "__main__":
     #logger.add_log_channel(LogChannels.TRAINING)
     #logger.add_log_channel(LogChannels.DEBUG)
     #logger.add_log_channel(LogChannels.LOSSES)
-    logger.add_log_channel(LogChannels.INIT)
-    logger.add_log_channel(LogChannels.PARAMS)
-    logger.add_log_channel(LogChannels.DATA)
+    # logger.add_log_channel(LogChannels.INIT)
+    # logger.add_log_channel(LogChannels.PARAMS)
+    # logger.add_log_channel(LogChannels.DATA)
 
     #print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
     # Init data
     if USE_BRUSH:
-        datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False)
+        datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, image_max_shape=TARGET_IMAGE_SIZE, save_to_file=False)
     else:
-        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True)
+        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=TARGET_IMAGE_SIZE)
     
     #Separate signal in appropriate train, test, split
     train_signals, test_signals = train_test_split(datasource.signals, train_size=TRAIN_SIZE)
@@ -75,14 +75,12 @@ if __name__ == "__main__":
     test_dataset = HandWrittingDataset(test_signals, image_max_shape, PATCHES_DIM, NORMALIZE_PIXEL_VALUES, NORMALIZE_COORDS, True)
     test_dataset.prepare_training_data()
 
-    do_pin_memory = device != 'cpu'
-
     train_loader = DataLoader(train_dataset, shuffle=True, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=train_dataset.get_collate_function())
     test_loader = DataLoader(test_dataset, shuffle=False, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=train_dataset.get_collate_function())
 
     logger.log(LogChannels.INIT, f"Using n° points to predict: Train={len(train_dataset)}, Test={len(test_dataset)}")
 
-    logger.log(LogChannels.INIT, f"Loading {len(train_loader)} sub-strokes batches as train, {len(test_loader)} sub-strokes batches as test")
+    logger.log(LogChannels.INIT, f"Loading {len(train_loader)} batches as train, {len(test_loader)} batches as test")
 
     #Create model
     model = HwLstm(input_size=2, hidden_size=LSTM_HIDDEN_DIM, num_layers=LSTM_LAYERS)

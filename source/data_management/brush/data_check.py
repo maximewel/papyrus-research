@@ -30,7 +30,7 @@ def test_dataset():
     # Init data
     datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False)
 
-    dataset = HandWrittingDataset.from_datasource(datasource, patch_dimension, False, False, False)
+    dataset = HandWrittingDataset(datasource.signals, datasource.signals_max_shape, patch_dimension, False, False, False)
     dataset.prepare_training_data()
 
     unshuffled_loader = DataLoader(dataset, shuffle=False, batch_size=BATCH_SIZE)

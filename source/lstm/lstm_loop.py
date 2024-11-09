@@ -63,7 +63,6 @@ def do_training(model: HwLstm, train_loader: DataLoader, test_loader: DataLoader
                     packed_sequences, labels = batch
                     packed_sequences, labels = packed_sequences.to(device), labels.to(device)
 
-                    # Iterate over the sequences untill all are over.
                     y_pred = model.forward(packed_sequences, last_layer_mlp=True)
                     asStr = [f"|{labels[i].cpu().detach().numpy()}-{y_pred[i].cpu().detach().numpy()}|" for i in range(len(y_pred))]
                     logger.log(LogChannels.LOSSES, f"labels-pred ={' | '.join(asStr)}")
