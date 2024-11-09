@@ -128,8 +128,6 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
 
                     # Iterate over the sequences untill all are over. 
                     y_pred = model.forward(images_patches, masks, sequences)
-                    if not normalized_sequences:
-                        y_pred = torch.round(y_pred)
 
                     ### COORD loss ###
                     if LogChannels.LOSS_DETAILED in logger.channels:
@@ -186,9 +184,7 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                     for batch in test_loader:
                         original_images, images_patches, masks, sequences, labels = data_from_batch(batch, device)
 
-                        y_pred = model.forward(images_patches, masks, sequences)                    
-                        if not normalized_sequences:
-                            y_pred = torch.round(y_pred)
+                        y_pred = model.forward(images_patches, masks, sequences)
 
                         ### COORD loss ###
                         coord_loss = coord_criterion(y_pred, labels)
