@@ -39,7 +39,7 @@ MAKE_POSITIONAL_ENCODING_LEARNABLE = False
 DROPOUT_RATIO = 0.1
 BATCH_SIZE = 8
 
-PATCHES_DIM = (8, 8)
+PATCHES_DIM = (16, 16)
 EMBEDDING_DIMS = 256
 
 NORMALIZE_COORDS = False
@@ -51,7 +51,7 @@ LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
 DATASET_SIZE = 1
 TRAIN_SIZE = 0.8
-IMAGE_MAX_SHAPE = (100, 150)
+IMAGE_MAX_SHAPE = (100, 100)
 
 LR = 0.001
 N_EPOCHS = 5
@@ -112,7 +112,7 @@ if __name__ == "__main__":
     decoder_layers = int(os.getenv('DECODER_LAYERS', DECODER_LAYERS))
     autoregress_target_len = int(os.getenv('AUTOREGRESS_TARGET_LEN', AUTOREGRESS_TARGET_LEN))
     
-    image_max_shape = tuple(map(int, os.getenv('PATCHES_DIM', ','.join(map(str, IMAGE_MAX_SHAPE))).split(',')))
+    image_max_shape = tuple(map(int, os.getenv('IMAGE_MAX_SHAPE', ','.join(map(str, IMAGE_MAX_SHAPE))).split(',')))
 
     dropout_ratio = float(os.getenv('DROPOUT_RATIO', DROPOUT_RATIO))
     batch_size = int(os.getenv('BATCH_SIZE', BATCH_SIZE))

@@ -20,7 +20,7 @@ from source.model.blocks.constants.tokens import Tokens
 import torch
 import matplotlib.pyplot as plt
 
-folder_model_to_load = "brush_predToken_4epochs"
+folder_model_to_load = "transfo_fullepoch_brush"
 USE_LSTM = False
 folder_lstm_model_to_load = "brush_100.150_n_ep50_Notnormalized"
 
@@ -30,9 +30,9 @@ MIN_DIM_SHOWOFF = 50
 
 STOP_CONDITION_IDENTICAL_OUTPUTS = 5
 
-DENORMALIZE_SEQUENCES = False
+DENORMALIZE_SEQUENCES = True
 
-REPLACE_WITH_GOLDEN = False
+REPLACE_WITH_GOLDEN = True
 
 tolerance = 0.0001
 def has_identical_last_values(tensor, n: int) -> bool:
@@ -81,8 +81,8 @@ if __name__ == "__main__":
 
         from source.logging.log import logger, LogChannels
         logger.add_log_channel(LogChannels.DATA)
-        # datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False, image_max_shape=(36, 50))
-        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=(36, 50))
+        datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False, image_max_shape=(100, 100))
+        # datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=(100, 100))
         
         valid_signals = sorted(datasource.signals, key = lambda signal: len(signal), reverse=True)[:50]
 
@@ -167,7 +167,7 @@ if __name__ == "__main__":
                     fig.canvas.flush_events()  # Flush any GUI events
 
                     # Check if we should stop
-                    if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS) or (REPLACE_WITH_GOLDEN and i >= len(current_signal)) or (i > 500):
+                    if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS) or (REPLACE_WITH_GOLDEN and i >= len(current_signal)) or (i > 300):
                         print(f"Early stop - identical values loop detected in the last {STOP_CONDITION_IDENTICAL_OUTPUTS} outputs")
                         stop_signal = True
 
