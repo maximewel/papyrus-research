@@ -43,13 +43,12 @@ PATCHES_DIM = (16, 16)
 EMBEDDING_DIMS = 256
 
 NORMALIZE_COORDS = False
-NORMALIZE_PIXEL_VALUES = False
 
 USE_PREDICTION_TOKEN = False
 USE_LSTM = False
 LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
-DATASET_SIZE = 1
+DATASET_SIZE = 0.001
 TRAIN_SIZE = 0.8
 IMAGE_MAX_SHAPE = (100, 100)
 
@@ -99,9 +98,10 @@ if __name__ == "__main__":
     # logger.add_log_channel(LogChannels.DIMENSIONS)
     # logger.add_log_channel(LogChannels.PADDING)
     # logger.add_log_channel(LogChannels.MASKS)
-    logger.add_log_channel(LogChannels.DATA)
-    logger.add_log_channel(LogChannels.LOSSES)
-    logger.add_log_channel(LogChannels.LOSS_DETAILED)
+    # logger.add_log_channel(LogChannels.DATA)
+    # logger.add_log_channel(LogChannels.LOSSES)
+    # logger.add_log_channel(LogChannels.LOSS_DETAILED)
+    logger.add_log_channel(LogChannels.DOCKER_TRACE)
     # logger.add_log_channel(LogChannels.INTERNAL_SEQUENCE_TRACE)
 
     print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
@@ -121,7 +121,6 @@ if __name__ == "__main__":
     embedding_dims = int(os.getenv('EMBEDDING_DIMS', EMBEDDING_DIMS))
 
     normalize_coords = bool(int(os.getenv('NORMALIZE_COORDS', int(NORMALIZE_COORDS))))
-    normalize_pixel_values = bool(int(os.getenv('NORMALIZE_PIXEL_VALUES', int(NORMALIZE_PIXEL_VALUES))))
 
     use_prediction_token = bool(int(os.getenv('USE_PREDICTION_TOKEN', int(USE_PREDICTION_TOKEN))))
     use_lstm = bool(int(os.getenv('USE_LSTM', int(USE_LSTM))))
@@ -177,9 +176,9 @@ if __name__ == "__main__":
 
     image_max_shape = tuple(reversed(datasource.signals_max_shape))
 
-    train_dataset = HandWrittingDataset(train_signals, image_max_shape, patches_dim, normalize_pixel_values, normalize_coords, False)
+    train_dataset = HandWrittingDataset(train_signals, image_max_shape, patches_dim, normalize_coords, False)
     train_dataset.prepare_training_data()
-    test_dataset = HandWrittingDataset(test_signals, image_max_shape, patches_dim, normalize_pixel_values, normalize_coords, False)
+    test_dataset = HandWrittingDataset(test_signals, image_max_shape, patches_dim, normalize_coords, False)
     test_dataset.prepare_training_data()
 
     logger.log(LogChannels.INIT, f"Using n° points to predict: Train={len(train_dataset)}, Test={len(test_dataset)}")

@@ -11,8 +11,6 @@ class Patchificator():
     unfolder: torch.nn.Unfold
     fixed_image_dim: tuple
 
-    IMG_MAX_VALUE = 1
-
     def __init__(self, patch_dimension: tuple, fixed_image_dim: tuple) -> None:
         """
         Build a patchificator
@@ -24,7 +22,7 @@ class Patchificator():
         self.unfolder = torch.nn.Unfold(patch_dimension, stride=patch_dimension)
         self.fixed_image_dim = fixed_image_dim
     
-    def normalize_patchify_images(self, images: list[np.ndarray], normalize_value: bool) -> tuple[Tensor, Tensor]:
+    def normalize_patchify_images(self, images: list[np.ndarray]) -> tuple[Tensor, Tensor]:
         """
         Normalize the images to obtain fixed-length images.
         Return the patchified image as well as the corresponding padding masks
@@ -37,7 +35,6 @@ class Patchificator():
             images: list[np.ndarray] - Input images. List of np.ndarray
                 List: Because a list allows for non-homogeneous images
                 ndarray: Expecting images as ndarray
-            normalize_value: bool - Whether to normalize the pixel's values by the max, 255 (expecting grayscale)
 
         Returns
         -----
@@ -64,8 +61,6 @@ class Patchificator():
                 w, h = image.shape
             
             image_tensor = torch.from_numpy(image).float()
-            if normalize_value:
-                image_tensor /= self.IMG_MAX_VALUE
 
             padded_images[i, 0, :w, :h] = image_tensor
             padding_masks[i, 0, :w, :h] = 0

@@ -23,11 +23,15 @@ class BrushDataset(StrokeHandwrittingDataset):
     DRAW_COLOR_BLACK = 255
     DRAW_COLOR_SIZE = 1
 
+    restrict_id: int | None
+
     def __init__(self, brush_root, separate_strokes: bool = True, save_to_file: bool = True, 
-                 image_max_shape: tuple[int, int] = None, window_size: int = None):
+                 image_max_shape: tuple[int, int] = None, window_size: int = None, restrict_id: int|None = None):
         self.brush_root = brush_root
         self.save_to_file = save_to_file
         self.window_size = window_size
+
+        self.restrict_id = restrict_id
 
         super().__init__(separate_strokes, image_max_shape)
 
@@ -64,6 +68,8 @@ class BrushDataset(StrokeHandwrittingDataset):
         i = 0
         for writer_id in writer_ids:
             i += 1
+            if self.restrict_id is not None and i != self.restrict_id:
+                continue
             writer_path = os.path.join(raw_root, writer_id)
             #Each drawin is present in three examplaries: n, n_resample20 and n_resample25
             #base dataloader selects default (10ms)

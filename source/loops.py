@@ -112,7 +112,7 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
         optimizer = Adam(model.parameters(), lr=lr)
         coord_criterion = EuclideanDistanceLoss()
         Skeleton_criterion = SkeletonLoss(normalized_sequences=normalized_sequences, dataset_image_shape=dataset_image_shape, 
-                                          display=DISPLAY_Skeleton_LOSS, mode=SkeletonLossMode.DIST_PIX)
+                                          display=DISPLAY_Skeleton_LOSS, mode=SkeletonLossMode.DIST_LAST_PIX)
 
         epoch_progress_bar = progress.add_task("[blue]Epoch...", total=n_epochs)
         batch_progress_bar = progress.add_task("[red]Batch...", total=len(train_loader))
@@ -122,8 +122,11 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
             for epoch in range(n_epochs):
 
                 train_loss = 0.0
-
+                logger.log(LogChannels.LOSSES, f"TRAIN LOOP")
+                
+                b_number = 1
                 for batch in train_loader:
+
                     original_images, images_patches, masks, sequences, labels = data_from_batch(batch, device)
 
                     # Iterate over the sequences untill all are over. 
@@ -137,8 +140,10 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                     coord_loss = coord_criterion(y_pred, labels) * losses_weights.coord_weight
 
                     ### Skeleton loss ###
+                    #Apply skeletton loss only on generated tensors that are not EOS
+                    label_eos_mask = ~(labels == Tokens.EOS_TENSOR.value).all(dim=1)
                     last_coordinates = retrieve_last_values(sequences)
-                    Skeleton_loss = Skeleton_criterion(last_coordinates, y_pred.detach(), original_images) * losses_weights.skeleton_weight
+                    Skeleton_loss = Skeleton_criterion(last_coordinates[label_eos_mask], y_pred.detach()[label_eos_mask], original_images) * losses_weights.skeleton_weight
 
                     coord_loss_as_nbr, Skeleton_loss_as_nbr = coord_loss.detach().cpu().item(), Skeleton_loss.detach().cpu().item()
 
@@ -146,11 +151,13 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                     Skeleton_losses.append(Skeleton_loss_as_nbr)
 
                     loss = (coord_loss + Skeleton_loss) / losses_weights.total_weights
+                    loss_nbr = loss.detach().cpu().item()
 
-                    logger.log(LogChannels.LOSSES, f"TRAIN LOOP")
                     logger.log(LogChannels.LOSSES, f"coord_loss = {coord_loss_as_nbr}")
                     logger.log(LogChannels.LOSSES, f"Skeleton_loss = {Skeleton_loss_as_nbr}")
-                    logger.log(LogChannels.LOSSES, f"total_loss = {loss.detach().cpu().item()}\n")
+                    logger.log(LogChannels.LOSSES, f"total_loss = {loss_nbr}\n")
+                    logger.log(LogChannels.DOCKER_TRACE, f"Epoch {epoch + 1}/{n_epochs} - Batch {b_number}/{len(train_loader)} - Loss={loss_nbr}\n")
+                    b_number += 1
 
                     optimizer.zero_grad()
                     loss.backward()
@@ -178,7 +185,7 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                 train_losses.append(train_loss)
 
                 # Test loop
-                logger.log(LogChannels.LOSSES, f"TEST LOOP...")
+                logger.log(LogChannels.LOSSES, f"TEST LOOP")
                 with torch.no_grad():
                     test_loss = 0.0
                     for batch in test_loader:
@@ -198,7 +205,7 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
 
                         logger.log(LogChannels.LOSSES, f"coord_loss = {coord_loss.detach().cpu().item()}")
                         logger.log(LogChannels.LOSSES, f"Skeleton_loss = {Skeleton_loss.detach().cpu().item()}")
-                        logger.log(LogChannels.LOSSES, f"total_loss = {loss.detach().cpu().item()}")
+                        logger.log(LogChannels.LOSSES, f"total_loss = {loss.detach().cpu().item()}\n")
 
                         del images_patches, masks, sequences, labels, y_pred, loss
                     

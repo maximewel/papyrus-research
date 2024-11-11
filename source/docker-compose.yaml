@@ -33,7 +33,7 @@ services:
       PATCHES_DIM: "16, 16"
       EMBEDDING_DIMS: 256
 
-      N_EPOCHS: 5
+      N_EPOCHS: 10
       LR: 0.0005
       TRAIN_SIZE: 0.90
       DATASET_SIZE: 0.10

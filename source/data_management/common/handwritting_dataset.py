@@ -36,7 +36,6 @@ class HandWrittingDataset(Dataset):
     coordinate_to_predict: list[torch.Tensor]
 
     patchificator: Patchificator
-    normalize_pixel_values: bool
     normalize_coordinate_sequences: bool
 
     patches_dim: tuple
@@ -48,7 +47,7 @@ class HandWrittingDataset(Dataset):
     samples_to_take: int|float
 
     def __init__(self, signals: list[list[tuple[int, int]]], max_image_shape: tuple[int, int], patches_dim: tuple, 
-                 normalize_pixel_values: bool = True, normalize_coordinate_sequences: bool = True, lstm_mode: bool = False):
+                    normalize_coordinate_sequences: bool = True, lstm_mode: bool = False):
         super().__init__()
 
         self.coordinate_to_predict = None
@@ -57,7 +56,6 @@ class HandWrittingDataset(Dataset):
         self.patches_dim = patches_dim
         self.target_image_shape = max_image_shape
 
-        self.normalize_pixel_values = normalize_pixel_values
         self.normalize_coordinate_sequences = normalize_coordinate_sequences
 
         #Ask the implementationt to load the signals/images data
@@ -68,10 +66,9 @@ class HandWrittingDataset(Dataset):
     
     @classmethod
     def from_datasource(self, datasource: StrokeHandwrittingDataset, 
-                    patches_dim: tuple, normalize_pixel_values: bool = True, 
-                    normalize_coordinate_sequences: bool = True, lstm_mode: bool = False) -> HandWrittingDataset:
+                    patches_dim: tuple, normalize_coordinate_sequences: bool = True, lstm_mode: bool = False) -> HandWrittingDataset:
         images_dim = tuple(reversed(datasource.signals_max_shape))
-        return HandWrittingDataset(datasource.signals, images_dim, patches_dim, normalize_pixel_values, normalize_coordinate_sequences, lstm_mode)
+        return HandWrittingDataset(datasource.signals, images_dim, patches_dim, normalize_coordinate_sequences, lstm_mode)
 
     def build_images(self):
         """
@@ -208,7 +205,7 @@ class HandWrittingDataset(Dataset):
         patchificator = Patchificator(self.patches_dim, self.target_image_shape)
 
         logger.log(LogChannels.DATA, f"Patchifying images... {self.target_image_shape}")
-        self.patchified_images, self.patches_padding_masks = patchificator.normalize_patchify_images(self.images, normalize_value=self.normalize_pixel_values)
+        self.patchified_images, self.patches_padding_masks = patchificator.normalize_patchify_images(self.images)
     
     def sequences_to_tensor(self):
         """"
@@ -249,7 +246,9 @@ class HandWrittingDataset(Dataset):
             signal = self.signals_as_tensor[i]
             len_of_signal = signal.shape[0]
 
-            for j in range(1, len_of_signal):
+            #LSTM does not want to predict [-1,-1]
+            max_predict_length = len_of_signal-1 if self.lstm_mode else len_of_signal
+            for j in range(1, max_predict_length):
                 #J Starts at 1 as we expect to always have at least 1 data (The starting point) to predict
                 subsequence = torch.Tensor(signal[:j])
                 label = torch.Tensor(signal[j])

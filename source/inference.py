@@ -19,27 +19,62 @@ from source.model.blocks.constants.tokens import Tokens
 
 import torch
 import matplotlib.pyplot as plt
+import numpy as np
+import cv2
 
-folder_model_to_load = "transfo_fullepoch_brush"
+folder_model_to_load = "fullBRUSH_2epochs"
 USE_LSTM = False
 folder_lstm_model_to_load = "brush_100.150_n_ep50_Notnormalized"
 
-PATCHES_DIM = (8, 8)
+PATCHES_DIM = (16, 16)
 
 MIN_DIM_SHOWOFF = 50
 
-STOP_CONDITION_IDENTICAL_OUTPUTS = 5
+STOP_CONDITION_IDENTICAL_OUTPUTS = 20
 
-DENORMALIZE_SEQUENCES = True
+DENORMALIZE_SEQUENCES = False
 
-REPLACE_WITH_GOLDEN = True
+REPLACE_WITH_GOLDEN = False
+
+REPLACE_ON_SKELETON = False
+REPLACE_ON_SKELETON_ON_RES = False
+
+IMAGE_MAX_SHAPE = (100, 100)
+
+WRITER_ID = 10
 
 tolerance = 0.0001
 def has_identical_last_values(tensor, n: int) -> bool:
     """Return whether the last N values of the tensor are exact"""
-    last_rows = tensor[-n:, :]    
+    if tensor.shape[0] < n:
+        return False
+    last_rows = tensor[-n:, :]
     are_identical = torch.all(torch.abs(last_rows - last_rows[0, :]) < tolerance, dim=1).all()    
     return are_identical.item()
+
+def closest_point_on_skeletton(image_skeleton: np.ndarray, point: torch.Tensor) -> torch.Tensor:
+    """Return the closest point on skeletton"""
+    try:
+        #The loss is simply the smallest distance between the skeletton and the predicted coordinate
+        image_point = np.ones(IMAGE_MAX_SHAPE)
+        image_point[*point.squeeze(0).int().tolist()] = 0
+
+        distances = cv2.distanceTransform(image_point.astype(np.uint8), cv2.DIST_L2, 3)
+
+        image_skeleton_padded = np.zeros(IMAGE_MAX_SHAPE)
+        image_skeleton_padded[:image_skeleton.shape[0], :image_skeleton.shape[1]] = image_skeleton
+        distances_masked = distances * image_skeleton_padded
+
+        loss = np.min(distances_masked[image_skeleton_padded == 1])
+
+        if loss == 0:
+            return res
+        
+        coords_min = np.argwhere(distances_masked == loss)[0]
+        return torch.tensor(coords_min, device=point.device).unsqueeze(0)
+    except Exception as e:
+        print(f"Impossible to set point {point.unsqueeze(0)} on skeleton: {e}")
+        return point
 
 def image_from_result(resultSignal, mult_tensor, target_size):
     """
@@ -81,12 +116,12 @@ if __name__ == "__main__":
 
         from source.logging.log import logger, LogChannels
         logger.add_log_channel(LogChannels.DATA)
-        datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False, image_max_shape=(100, 100))
-        # datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=(100, 100))
+        datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False, image_max_shape=IMAGE_MAX_SHAPE, restrict_id=WRITER_ID)
+        # datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=IMAGE_MAX_SHAPE)
         
         valid_signals = sorted(datasource.signals, key = lambda signal: len(signal), reverse=True)[:50]
 
-        dataset = HandWrittingDataset(valid_signals, tuple(reversed(datasource.signals_max_shape)), PATCHES_DIM, False, DENORMALIZE_SEQUENCES, False)
+        dataset = HandWrittingDataset(valid_signals, tuple(reversed(datasource.signals_max_shape)), PATCHES_DIM, DENORMALIZE_SEQUENCES, False)
         dataset.prepare_training_data()
 
         unfolder = torch.nn.Fold(output_size=dataset.target_image_shape, kernel_size=PATCHES_DIM, stride=PATCHES_DIM)
@@ -154,7 +189,17 @@ if __name__ == "__main__":
                     #Used to avoid OOM during autoregression
                     res = res.detach()
                     print(f"Generated {res}")
+
+                    if REPLACE_ON_SKELETON and REPLACE_ON_SKELETON_ON_RES:
+                        print(f"Res not on skel: {res}")
+                        res = closest_point_on_skeletton(orig_image, res)
+                        print(f"Res on skel: {res}")
+
                     resultSignal = torch.vstack([resultSignal, res])
+
+                    if REPLACE_ON_SKELETON and not REPLACE_ON_SKELETON_ON_RES:
+                        res = closest_point_on_skeletton(orig_image, res)
+
                     if REPLACE_WITH_GOLDEN:
                         working_signal = torch.vstack([working_signal, originalSignal[i]])
                     else:
@@ -167,7 +212,7 @@ if __name__ == "__main__":
                     fig.canvas.flush_events()  # Flush any GUI events
 
                     # Check if we should stop
-                    if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS) or (REPLACE_WITH_GOLDEN and i >= len(current_signal)) or (i > 300):
+                    if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS) or (REPLACE_WITH_GOLDEN and i >= len(current_signal)) or (i > 2 * len(current_signal)):
                         print(f"Early stop - identical values loop detected in the last {STOP_CONDITION_IDENTICAL_OUTPUTS} outputs")
                         stop_signal = True
 
