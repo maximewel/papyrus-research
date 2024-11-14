@@ -98,7 +98,7 @@ if __name__ == "__main__":
     # logger.add_log_channel(LogChannels.DIMENSIONS)
     # logger.add_log_channel(LogChannels.PADDING)
     # logger.add_log_channel(LogChannels.MASKS)
-    # logger.add_log_channel(LogChannels.DATA)
+    logger.add_log_channel(LogChannels.DATA)
     # logger.add_log_channel(LogChannels.LOSSES)
     # logger.add_log_channel(LogChannels.LOSS_DETAILED)
     logger.add_log_channel(LogChannels.DOCKER_TRACE)

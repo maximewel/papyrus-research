@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import pickle
-from pathlib import Path
 
 from source.logging.log import logger, LogChannels
 from source.model.blocks.constants.files import *
@@ -29,33 +28,14 @@ class BrushDataset(StrokeHandwrittingDataset):
                  image_max_shape: tuple[int, int] = None, window_size: int = None, restrict_id: int|None = None):
         self.brush_root = brush_root
         self.save_to_file = save_to_file
-        self.window_size = window_size
 
         self.restrict_id = restrict_id
 
-        super().__init__(separate_strokes, image_max_shape)
+        super().__init__(brush_root, separate_strokes, image_max_shape, window_size, save_to_file)
 
-    def _load_data(self):
-        """Function that tries to retrieve samples form single file. If it cannot, retrieve samples from individual files on disk"""
-        try:
-            self.load_from_memory()
-        except Exception as e:
-            logger.log(LogChannels.DATA, f"Impossible to retrieve single file, retrieving samples individually")
-            self.load_raw_data()
-
-    def load_from_memory(self):
-        """Load all images and labels at once"""
-        strokemode_folder = GROUPED_ORIGINAL_DIR if self.separate_strokes else GROUPED_STROKES_DIR
-        signal_path = os.path.join(self.brush_root, strokemode_folder, FOLDER_SIGNALS, FILE_SIGNALS)
-        logger.log(LogChannels.DATA, f"Trying to retrieve BRUSH files at {signal_path}")
-
-        with open(signal_path, "rb") as f:
-            signals = np.load(f, allow_pickle=True)
-        
-        self.signals = signals
-
-    def load_raw_data(self):
+    def _load_raw_data(self):
         """This function loads the samples from disk, creating the offline image in the process"""
+        self.signals = []
         raw_root = os.path.join(self.brush_root, RAW_DIR)
         try:
             writer_ids = os.listdir(raw_root)
@@ -82,9 +62,6 @@ class BrushDataset(StrokeHandwrittingDataset):
                 sentence, signal, char_label = self.load_signal(signal_path)
                 self.signals.append(signal)
 
-        if self.save_to_file:
-            self.save_signals_single_file()
-
     def load_signal(self, filepath: str) -> tuple[str, list, list]:
         """Load an online sinal from a filepath
         Args
@@ -103,20 +80,3 @@ class BrushDataset(StrokeHandwrittingDataset):
         signal = (np.rint(signal)).astype(int)
 
         return sentence, signal, label
-
-    def save_signals_single_file(self):
-        """Save all images and labels at once"""
-        strokemode_folder = GROUPED_ORIGINAL_DIR if self.separate_strokes else GROUPED_STROKES_DIR
-        
-        signal_path = os.path.join(self.brush_root, strokemode_folder, FOLDER_SIGNALS)
-
-        Path(signal_path).mkdir(parents=True, exist_ok=True)
-
-        signal_folder = os.path.join(signal_path, FILE_SIGNALS)
-
-        logger.log(LogChannels.DATA, f"Saving signals to {signal_path}")
-
-        signale_to_save = np.array(self.signals, dtype="object")
-
-        with open(signal_folder, "wb") as f:
-            np.save(f, signale_to_save)

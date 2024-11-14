@@ -3,6 +3,9 @@ import numpy as np
 from source.logging.log import logger, LogChannels
 from abc import ABC, abstractmethod
 from source.model.blocks.constants.sequence_to_image import ImageHelper
+import os
+from pathlib import Path
+from source.model.blocks.constants.files import *
 
 class StrokeHandwrittingDataset(ABC):
     #Some constants used during pre-processing of the signals before creating the images
@@ -19,22 +22,26 @@ class StrokeHandwrittingDataset(ABC):
     separate_strokes: bool
     signals_max_shape: tuple[int, int]
 
-    def __init__(self, separate_strokes: bool = True, image_max_shape: tuple[int, int] = None, window_size: int = None):
+    signals: list[list]
+
+    save_to_file: bool
+    datasource_root: str
+
+    def __init__(self, datasource_root:str, separate_strokes: bool = True, signals_max_shape: tuple[int, int] = None, window_size: int = None, save_to_file:bool = False):
         self.separate_strokes = separate_strokes
-        self.signals_max_shape = image_max_shape
+        self.signals_max_shape = signals_max_shape
         self.window_size = window_size
 
-        self.signals = []
-        
-        self._load_data()
+        self.save_to_file = save_to_file
+        self.datasource_root = datasource_root
 
-        self.apply_all_preprocess_to_signals()
+        self._load_data()
 
     def __len__(self):
         return len(self.signals)
 
     @abstractmethod
-    def _load_data(self):
+    def _load_raw_data(self):
         """
         Load_data: Private function used only by the dataset itself.
         Classes implementing handwriting datasets must fill the self.signals variable
@@ -364,3 +371,44 @@ class StrokeHandwrittingDataset(ABC):
             
             cleaned_signals.append(signal[real_start-1:])
         self.signals = cleaned_signals
+
+    ## Saving-related
+    def _load_data(self):
+        """Function that tries to retrieve samples form single file. If it cannot, retrieve samples from individual files on disk"""
+        try:
+            self.load_from_memory()
+        except Exception as e:
+            logger.log(LogChannels.DATA, f"Impossible to retrieve single file, retrieving samples individually")
+            self._load_raw_data()
+            self.apply_all_preprocess_to_signals()
+
+            if self.save_to_file:
+                self.save_signals_single_file()
+
+    def get_signal_path(self) -> str:
+        """Get the path to this dataset's signal path"""
+        stroke_type_folder = GROUPED_ORIGINAL_DIR if self.separate_strokes else GROUPED_STROKES_DIR
+        signal_shape_additional = str(self.signals_max_shape) if self.signals_max_shape is not None else ''
+        return os.path.join(self.datasource_root, stroke_type_folder, f"{FILE_SIGNALS}_{signal_shape_additional}.npy")
+
+    def load_from_memory(self):
+        """Load all images and labels at once"""
+        signal_path = self.get_signal_path()
+        logger.log(LogChannels.DATA, f"Trying to retrieve signals files at {signal_path}")
+
+        with open(signal_path, "rb") as f:
+            signals = np.load(f, allow_pickle=True).tolist()
+        
+        self.signals = signals
+
+    def save_signals_single_file(self):
+        """Save all images and labels at once"""
+        signal_path = self.get_signal_path()
+        logger.log(LogChannels.DATA, f"Saving signals to {signal_path}")
+
+        Path(signal_path).parent.mkdir(parents=True, exist_ok=True)
+
+        signale_to_save = np.array(self.signals, dtype="object")
+
+        with open(signal_path, "wb") as f:
+            np.save(f, signale_to_save)

@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 
-folder_model_to_load = "fullBRUSH_2epochs"
+folder_model_to_load = "brush_10epochs"
 USE_LSTM = False
 folder_lstm_model_to_load = "brush_100.150_n_ep50_Notnormalized"
 
@@ -41,7 +41,7 @@ REPLACE_ON_SKELETON_ON_RES = False
 
 IMAGE_MAX_SHAPE = (100, 100)
 
-WRITER_ID = 10
+WRITER_ID = 1
 
 tolerance = 0.0001
 def has_identical_last_values(tensor, n: int) -> bool:
