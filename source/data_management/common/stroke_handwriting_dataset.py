@@ -391,6 +391,7 @@ class StrokeHandwrittingDataset(ABC):
         signal_shape_additional = str(self.signals_max_shape) if self.signals_max_shape is not None else ''
         return os.path.join(self.datasource_root, stroke_type_folder, f"{FILE_SIGNALS}_{signal_shape_additional}.npy")
 
+
     def load_from_memory(self):
         """Load all images and labels at once"""
         signal_path = self.get_signal_path()
