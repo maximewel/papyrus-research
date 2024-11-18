@@ -27,7 +27,7 @@ class HandWrittingDataset(Dataset):
     dataset_folder_name: str
 
     #Parameter to protect RAM while still being efficient when batch-transformer data on the saving method
-    PREPARE_TRAINING_DATA_WINDOW_SIZE = 50
+    PREPARE_TRAINING_DATA_WINDOW_SIZE = 1000
 
     #Gaussian noise parameters
     GAUSS_MEAN = 0.0
