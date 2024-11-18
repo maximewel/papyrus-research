@@ -175,6 +175,9 @@ class HandWrittingDataset(Dataset):
 
                 # Save datapoints using multiprocessing
                 logger.log(LogChannels.DATA, f"Saving all sequences and subsequences...")
+                print(f"Saving {len(sequences_bundles_to_save)} sequences")
+                for a in sequences_bundles_to_save:
+                    cls.save_sequence_bundle(a)
                 map(cls.save_sequence_bundle, sequences_bundles_to_save)
                 map(cls.save_subsequence_bundle, subsequences_bundles_to_save)
                 # seq_futures = executor.map()
@@ -192,7 +195,7 @@ class HandWrittingDataset(Dataset):
         """
         filepath, (sequence, image, patchified_image, patchified_masks) = filepath_and_bundle
         print(f"Saving sequence to {filepath}")
-        
+
         with open(filepath, 'wb') as f:
             np.savez_compressed(f, 
                                 sequence=sequence,
