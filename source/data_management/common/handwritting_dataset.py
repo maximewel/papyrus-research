@@ -175,8 +175,11 @@ class HandWrittingDataset(Dataset):
 
                 # Save datapoints using multiprocessing
                 logger.log(LogChannels.DATA, f"Saving all sequences and subsequences...")
-                executor.map(cls.save_sequence_bundle, sequences_bundles_to_save)
-                executor.map(cls.save_subsequence_bundle, subsequences_bundles_to_save)
+                seq_futures = executor.map(cls.save_sequence_bundle, sequences_bundles_to_save)
+                subseq_futures = executor.map(cls.save_subsequence_bundle, subsequences_bundles_to_save)
+                list(seq_futures)
+                list(subseq_futures)
+                logger.log(LogChannels.DATA, f"Done")
 
         logger.log(LogChannels.DATA, f"Saved {subsequence_index} datapoints to {save_to_folder}")
 
