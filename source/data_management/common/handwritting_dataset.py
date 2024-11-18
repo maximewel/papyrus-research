@@ -27,7 +27,7 @@ class HandWrittingDataset(Dataset):
     dataset_folder_name: str
 
     #Parameter to protect RAM while still being efficient when batch-transformer data on the saving method
-    PREPARE_TRAINING_DATA_WINDOW_SIZE = 1000
+    PREPARE_TRAINING_DATA_WINDOW_SIZE = 50
 
     #Gaussian noise parameters
     GAUSS_MEAN = 0.0
@@ -176,11 +176,14 @@ class HandWrittingDataset(Dataset):
                 # Save datapoints using multiprocessing
                 logger.log(LogChannels.DATA, f"Saving all sequences and subsequences...")
                 print(f"Saving {len(sequences_bundles_to_save)} sequences")
-                for a in sequences_bundles_to_save:
-                    cls.save_sequence_bundle(a)
-                map(cls.save_sequence_bundle, sequences_bundles_to_save)
-                map(cls.save_subsequence_bundle, subsequences_bundles_to_save)
-                # seq_futures = executor.map()
+                for subsequence in sequences_bundles_to_save:
+                    cls.save_sequence_bundle(subsequence)
+                
+                print(f"With MAP")
+                list(map(cls.save_sequence_bundle, sequences_bundles_to_save))
+
+                print(f"With EXECUTOR map")
+                list(executor.map(cls.save_sequence_bundle, sequences_bundles_to_save))
                 # subseq_futures = executor.map()
                 # list(seq_futures)
                 # list(subseq_futures)
