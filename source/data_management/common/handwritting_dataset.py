@@ -136,14 +136,15 @@ class HandWrittingDataset(Dataset):
         """
         sequence_index = 0
         subsequence_index = 0
-        sequences_bundles_to_save = []
-        subsequences_bundles_to_save = []
 
         Path(cls.datafolder_sequence_path(save_to_folder)).mkdir(parents=True, exist_ok=False)
         Path(cls.datafolder_subsequence_path(save_to_folder)).mkdir(parents=False, exist_ok=False)
 
         with ProcessPoolExecutor() as executor:
             for i in range(0, len(signals), cls.PREPARE_TRAINING_DATA_WINDOW_SIZE):
+                sequences_bundles_to_save = []
+                subsequences_bundles_to_save = []
+
                 upper_bound = min(i+cls.PREPARE_TRAINING_DATA_WINDOW_SIZE, len(signals)-1)
                 logger.log(LogChannels.DATA, f"Preparing data {i}:{upper_bound}/{len(signals)}")
 
@@ -174,19 +175,9 @@ class HandWrittingDataset(Dataset):
                     sequence_index += 1
 
                 # Save datapoints using multiprocessing
-                logger.log(LogChannels.DATA, f"Saving all sequences and subsequences...")
-                print(f"Saving {len(sequences_bundles_to_save)} sequences")
-                for subsequence in sequences_bundles_to_save:
-                    cls.save_sequence_bundle(subsequence)
-                
-                print(f"With MAP")
-                list(map(cls.save_sequence_bundle, sequences_bundles_to_save))
-
                 print(f"With EXECUTOR map")
                 list(executor.map(cls.save_sequence_bundle, sequences_bundles_to_save))
-                # subseq_futures = executor.map()
-                # list(seq_futures)
-                # list(subseq_futures)
+                list(executor.map(cls.save_subsequence_bundle, subsequences_bundles_to_save))
                 logger.log(LogChannels.DATA, f"Done")
 
         logger.log(LogChannels.DATA, f"Saved {subsequence_index} datapoints to {save_to_folder}")
