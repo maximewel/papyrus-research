@@ -174,13 +174,13 @@ class HandWrittingDataset(Dataset):
                     
                     sequence_index += 1
 
-                # Save datapoints using multiprocessing
-                print(f"With EXECUTOR map")
+                # Save datapoints using multiprocessing (runs in background)
+                logger.log(LogChannels.DATA, f"Adding {len(sequences_bundles_to_save)} sequences, {len(subsequences_bundles_to_save)} subsequences to saving pool")
+
                 list(executor.map(cls.save_sequence_bundle, sequences_bundles_to_save))
                 list(executor.map(cls.save_subsequence_bundle, subsequences_bundles_to_save))
-                logger.log(LogChannels.DATA, f"Done")
 
-        logger.log(LogChannels.DATA, f"Saved {subsequence_index} datapoints to {save_to_folder}")
+        logger.log(LogChannels.DATA, f"Saved {sequence_index} sequences and {subsequence_index} subsequences to {save_to_folder}")
 
     @classmethod
     def save_sequence_bundle(cls, filepath_and_bundle: tuple[str, list]):
@@ -188,8 +188,6 @@ class HandWrittingDataset(Dataset):
         Save a single datapoint to disk
         """
         filepath, (sequence, image, patchified_image, patchified_masks) = filepath_and_bundle
-        print(f"Saving sequence to {filepath}")
-
         with open(filepath, 'wb') as f:
             np.savez_compressed(f, 
                                 sequence=sequence,
@@ -203,8 +201,6 @@ class HandWrittingDataset(Dataset):
         Save a single datapoint to disk
         """
         filepath, [image_id, subsequence, label] = filepath_and_bundle
-        print(f"Saving subsequence to {filepath}")
-
         with open(filepath, 'wb') as f:
             np.savez_compressed(f,
                                 image_id=image_id,
