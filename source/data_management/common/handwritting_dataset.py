@@ -189,7 +189,7 @@ class HandWrittingDataset(Dataset):
         Save a single datapoint to disk
         """
         filepath, (sequence, image, patchified_image, patchified_masks) = filepath_and_bundle
-        with open(filepath, 'rb') as f:
+        with open(filepath, 'wb') as f:
             np.savez_compressed(f, 
                                 sequence=sequence,
                                 image=image,
@@ -202,7 +202,7 @@ class HandWrittingDataset(Dataset):
         Save a single datapoint to disk
         """
         filepath, [image_id, subsequence, label] = filepath_and_bundle
-        with open(filepath, 'rb') as f:
+        with open(filepath, 'wb') as f:
             np.savez_compressed(f,
                                 image_id=image_id,
                                 subsequence=subsequence,
