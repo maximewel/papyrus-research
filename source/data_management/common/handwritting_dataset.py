@@ -142,38 +142,38 @@ class HandWrittingDataset(Dataset):
         Path(cls.datafolder_sequence_path(save_to_folder)).mkdir(parents=True, exist_ok=False)
         Path(cls.datafolder_subsequence_path(save_to_folder)).mkdir(parents=False, exist_ok=False)
 
-        for i in range(0, len(signals), cls.PREPARE_TRAINING_DATA_WINDOW_SIZE):
-            upper_bound = min(i+cls.PREPARE_TRAINING_DATA_WINDOW_SIZE, len(signals)-1)
-            logger.log(LogChannels.DATA, f"Preparing data {i}:{upper_bound}/{len(signals)}")
+        with ProcessPoolExecutor() as executor:
+            for i in range(0, len(signals), cls.PREPARE_TRAINING_DATA_WINDOW_SIZE):
+                upper_bound = min(i+cls.PREPARE_TRAINING_DATA_WINDOW_SIZE, len(signals)-1)
+                logger.log(LogChannels.DATA, f"Preparing data {i}:{upper_bound}/{len(signals)}")
 
-            subsequence = signals[i:upper_bound]
-            
-            #Build tensors training data
-            sequences_as_tensor = cls.sequences_to_tensor(subsequence, target_image_shape, normalize_coordinate_sequences)
-            images = cls.build_images(subsequence)
-            patchified_images, patchified_masks = cls.images_to_tensor(images, patches_dim, target_image_shape)
-            signal_subsequences, signal_labels = cls.extract_all_predictable_from_tensor(sequences_as_tensor, lstm_mode, apply_data_augment_gaussian)
-
-            #Save sequences to disk
-            for i in range(len(sequences_as_tensor)):
-                sequence_datafolder = cls.sequence_path_at_index(save_to_folder, sequence_index)
-                sequence_bundle = [sequences_as_tensor[i], images[i], patchified_images[i].numpy(), patchified_masks[i].numpy()]
-                sequences_bundles_to_save.append((sequence_datafolder, sequence_bundle))
-
-                #Save subsequences to disk
-                current_signal_subsequences, current_signal_labels = signal_subsequences[i], signal_labels[i]
-                for (current_signal_subsequence, current_signal_label) in zip(current_signal_subsequences, current_signal_labels):
-                    subsequence_datafolder = cls.subsequence_path_at_index(save_to_folder, subsequence_index)
-                    #Add reference to the sequence so that each subsequence has a direct link to its sequence
-                    subsequence_bundle = [np.array(sequence_index), current_signal_subsequence.numpy(), current_signal_label.numpy()]
-                    subsequences_bundles_to_save.append((subsequence_datafolder, subsequence_bundle))
-
-                    subsequence_index += 1
+                subsequence = signals[i:upper_bound]
                 
-                sequence_index += 1
+                #Build tensors training data
+                sequences_as_tensor = cls.sequences_to_tensor(subsequence, target_image_shape, normalize_coordinate_sequences)
+                images = cls.build_images(subsequence)
+                patchified_images, patchified_masks = cls.images_to_tensor(images, patches_dim, target_image_shape)
+                signal_subsequences, signal_labels = cls.extract_all_predictable_from_tensor(sequences_as_tensor, lstm_mode, apply_data_augment_gaussian)
 
-            # Save datapoints using multiprocessing
-            with ProcessPoolExecutor() as executor:
+                #Save sequences to disk
+                for i in range(len(sequences_as_tensor)):
+                    sequence_datafolder = cls.sequence_path_at_index(save_to_folder, sequence_index)
+                    sequence_bundle = [sequences_as_tensor[i], images[i], patchified_images[i].numpy(), patchified_masks[i].numpy()]
+                    sequences_bundles_to_save.append((sequence_datafolder, sequence_bundle))
+
+                    #Save subsequences to disk
+                    current_signal_subsequences, current_signal_labels = signal_subsequences[i], signal_labels[i]
+                    for (current_signal_subsequence, current_signal_label) in zip(current_signal_subsequences, current_signal_labels):
+                        subsequence_datafolder = cls.subsequence_path_at_index(save_to_folder, subsequence_index)
+                        #Add reference to the sequence so that each subsequence has a direct link to its sequence
+                        subsequence_bundle = [np.array(sequence_index), current_signal_subsequence.numpy(), current_signal_label.numpy()]
+                        subsequences_bundles_to_save.append((subsequence_datafolder, subsequence_bundle))
+
+                        subsequence_index += 1
+                    
+                    sequence_index += 1
+
+                # Save datapoints using multiprocessing
                 logger.log(LogChannels.DATA, f"Saving all sequences and subsequences...")
                 executor.map(cls.save_sequence_bundle, sequences_bundles_to_save)
                 executor.map(cls.save_subsequence_bundle, subsequences_bundles_to_save)
@@ -186,11 +186,12 @@ class HandWrittingDataset(Dataset):
         Save a single datapoint to disk
         """
         filepath, (sequence, image, patchified_image, patchified_masks) = filepath_and_bundle
-        np.savez_compressed(filepath, 
-                            sequence=sequence,
-                            image=image,
-                            patchified_image=patchified_image,
-                            patchified_masks=patchified_masks)
+        with open(filepath, 'rb') as f:
+            np.savez_compressed(f, 
+                                sequence=sequence,
+                                image=image,
+                                patchified_image=patchified_image,
+                                patchified_masks=patchified_masks)
         
     @classmethod
     def save_subsequence_bundle(cls, filepath_and_bundle: tuple[str, list]):
@@ -198,10 +199,11 @@ class HandWrittingDataset(Dataset):
         Save a single datapoint to disk
         """
         filepath, [image_id, subsequence, label] = filepath_and_bundle
-        np.savez_compressed(filepath, 
-                            image_id=image_id,
-                            subsequence=subsequence,
-                            label=label)
+        with open(filepath, 'rb') as f:
+            np.savez_compressed(f,
+                                image_id=image_id,
+                                subsequence=subsequence,
+                                label=label)
 
     @classmethod
     def datafolder_path(cls, save_folder: str):
