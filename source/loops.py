@@ -218,6 +218,5 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
 
         except Exception as e:
             print(f"Stopping due to {e}")
-        
         finally:
             return create_figures(train_losses, test_losses, n_epochs, len(train_loader), distances_losses, Skeleton_losses)

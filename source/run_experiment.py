@@ -17,6 +17,7 @@ from source.model.hw_model import HwTransformer
 from source.logging.log import logger, LogChannels
 from datetime import datetime
 from source.model.blocks.constants.files import *
+from source.model.blocks.constants.datasets_library import *
 from source.model.blocks.helper.id_card_creator import IdCardCreator
 from source.model.blocks.constants.device_helper import device
 from source.criterions.losses_weights import LossesWeights
@@ -49,11 +50,11 @@ USE_LSTM = False
 LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
 DATASET_SIZE = 0.001
-TRAIN_SIZE = 0.8
-IMAGE_MAX_SHAPE = (100, 100)
+IMAGE_MAX_SHAPE = (112, 112)
 
 LR = 0.001
 N_EPOCHS = 5
+TRAIN_SIZE = 0.8
 
 USE_BRUSH = True
 
@@ -98,7 +99,7 @@ if __name__ == "__main__":
     # logger.add_log_channel(LogChannels.DIMENSIONS)
     # logger.add_log_channel(LogChannels.PADDING)
     # logger.add_log_channel(LogChannels.MASKS)
-    # logger.add_log_channel(LogChannels.DATA)
+    logger.add_log_channel(LogChannels.DATA)
     # logger.add_log_channel(LogChannels.LOSSES)
     # logger.add_log_channel(LogChannels.LOSS_DETAILED)
     logger.add_log_channel(LogChannels.DOCKER_TRACE)
@@ -150,43 +151,18 @@ if __name__ == "__main__":
             param.requires_grad = False
     else:
         lstm_model = None
-
-    #Create stroke-level signals
-    if use_brush:
-        datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False, image_max_shape=image_max_shape)
-    else:
-        datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=image_max_shape)
-
-    signals_to_take: list = None
-    if(dataset_size < 0 or dataset_size > 1):
-        raise Exception(f"Please use dataset size between 0 and 1, not {dataset_size}")
-    else:
-        if dataset_size == 1:
-            signals_to_take = datasource.signals
-        else:
-            datasource_len = len(datasource.signals)
-            n_samples_to_take = int(np.round(dataset_size * datasource_len))
-            logger.log(LogChannels.DATA, f"Restricting to {dataset_size} of dataset ({n_samples_to_take}/{datasource_len} signals)")
-            signals_to_take = random.sample(datasource.signals, n_samples_to_take)
     
-    #Separate signal in appropriate train, test, split
-    train_signals, test_signals = train_test_split(signals_to_take, train_size=train_size)
-
     do_pin_memory = device != 'cpu'
 
-    image_max_shape = tuple(reversed(datasource.signals_max_shape))
-
-    train_dataset = HandWrittingDataset(train_signals, image_max_shape, patches_dim, normalize_coords, False)
-    train_dataset.prepare_training_data()
-    test_dataset = HandWrittingDataset(test_signals, image_max_shape, patches_dim, normalize_coords, False)
-    test_dataset.prepare_training_data()
+    train_dataset = HandWrittingDataset(BRUSH_100_100_TRAIN_M_AUGMENTED, False)
+    test_dataset = HandWrittingDataset(BRUSH_100_100_TEST_M_AUGMENTED, False)
 
     logger.log(LogChannels.INIT, f"Using n° points to predict: Train={len(train_dataset)}, Test={len(test_dataset)}")
 
     train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size, pin_memory=do_pin_memory, collate_fn=train_dataset.get_collate_function())
     test_loader = DataLoader(test_dataset, shuffle=False, batch_size=batch_size, pin_memory=do_pin_memory, collate_fn=test_dataset.get_collate_function())
 
-    logger.log(LogChannels.INIT, f"Loading {len(train_loader)} sub-strokes batches as train, {len(test_loader)} sub-strokes batches as test")
+    logger.log(LogChannels.INIT, f"Loading {len(train_loader)} subsequences batches as train, {len(test_loader)} subsequences batches as test")
     
     losses_weights = LossesWeights(weight_coord, weight_skeleton)
     #Init the transformer model
@@ -194,7 +170,7 @@ if __name__ == "__main__":
                           use_lstm=use_lstm, lstm_module=lstm_model,
                           n_encoder_layers=encoder_layers, n_encoder_heads=encoder_heads, enc_dec_dropout_ratio=dropout_ratio,
                           n_decoder_layers=decoder_layers, n_decoder_heads=decoder_heads,
-                          encoder_patch_dimension=patches_dim, fixed_size_image_dimension=train_dataset.target_image_shape,
+                          encoder_patch_dimension=patches_dim, fixed_size_image_dimension=IMAGE_MAX_SHAPE,
                           autoregressive_target_seq_len=autoregress_target_len,
                           make_positional_encodings_trainable=make_positional_encoding_learnable)
 
@@ -203,7 +179,7 @@ if __name__ == "__main__":
 
     #Start training
     try:
-        return_figures = do_training(model, train_loader, test_loader, device, n_epochs, lr, normalize_coords, train_dataset.target_image_shape, losses_weights)
+        return_figures = do_training(model, train_loader, test_loader, device, n_epochs, lr, normalize_coords, IMAGE_MAX_SHAPE, losses_weights)
     except Exception as e:
         print(f"Encountered exception while training model: {e}")
         raise e

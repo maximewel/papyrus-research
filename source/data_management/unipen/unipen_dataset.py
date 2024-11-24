@@ -6,21 +6,19 @@ from source.data_management.common.stroke_handwriting_dataset import StrokeHandw
 class UnipenDataset(StrokeHandwrittingDataset):
     unipen_root: str
 
-    def __init__(self, unipen_root: str, separate_strokes: bool = True, image_max_shape: tuple[int, int] = None, window_size: int = None):
+    def __init__(self, unipen_root: str, separate_strokes: bool = True, image_max_shape: tuple[int, int] = None, window_size: int = None, save_to_file: bool = False):
         self.unipen_root = unipen_root
         
-        super().__init__(separate_strokes, image_max_shape, window_size)
+        super().__init__(unipen_root, separate_strokes, image_max_shape, window_size, save_to_file)
     
-    def _load_data(self):
-        """Load all the signals and images"""
-        self.load_raw_data()
-
-    def load_raw_data(self):
+    def _load_raw_data(self):
         """ 
         Load all the Unipen raw data
         the Unipen data is into multiple formats. Use a Handler builder tobuild handlers correpsonding to the
         data fromats to obtain all strokes.
         """
+        self.signals = []
+
         #Get all the UNIPEN handlers from the handler builder
         unipen_handler_builder = UnipenHandlerBuilder(self.unipen_root)
         handlers = unipen_handler_builder.build_handlers()
