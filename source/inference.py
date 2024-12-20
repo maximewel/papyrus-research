@@ -22,9 +22,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 
-folder_model_to_load = "brush_10epochs"
+folder_model_to_load = "BRUSH_AUGMENTED"
 USE_LSTM = False
-folder_lstm_model_to_load = "brush_100.150_n_ep50_Notnormalized"
+folder_lstm_model_to_load = ""
 
 PATCHES_DIM = (16, 16)
 
@@ -33,13 +33,12 @@ MIN_DIM_SHOWOFF = 50
 STOP_CONDITION_IDENTICAL_OUTPUTS = 20
 
 DENORMALIZE_SEQUENCES = False
-
 REPLACE_WITH_GOLDEN = False
 
 REPLACE_ON_SKELETON = False
 REPLACE_ON_SKELETON_ON_RES = False
 
-IMAGE_MAX_SHAPE = (100, 100)
+IMAGE_MAX_SHAPE = (112, 112)
 
 WRITER_ID = 1
 
@@ -113,64 +112,57 @@ if __name__ == "__main__":
             lstm_model = None
 
         # Init data
-
         from source.logging.log import logger, LogChannels
         logger.add_log_channel(LogChannels.DATA)
-        datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False, image_max_shape=IMAGE_MAX_SHAPE, restrict_id=WRITER_ID)
-        # datasource = UnipenDataset(unipen_root=UNIPEN_ROOT, separate_strokes=True, image_max_shape=IMAGE_MAX_SHAPE)
         
-        valid_signals = sorted(datasource.signals, key = lambda signal: len(signal), reverse=True)[:50]
+        dataset = HandWrittingDataset("BRUSH_100.100_test_m_aug")
 
-        dataset = HandWrittingDataset(valid_signals, tuple(reversed(datasource.signals_max_shape)), PATCHES_DIM, DENORMALIZE_SEQUENCES, False)
-        dataset.prepare_training_data()
-
-        unfolder = torch.nn.Fold(output_size=dataset.target_image_shape, kernel_size=PATCHES_DIM, stride=PATCHES_DIM)
+        unfolder = torch.nn.Fold(output_size=IMAGE_MAX_SHAPE, kernel_size=PATCHES_DIM, stride=PATCHES_DIM)
         
-        mult_tensor = torch.tensor(dataset.target_image_shape, dtype=int, device=device) if DENORMALIZE_SEQUENCES else 1
+        mult_tensor = torch.tensor(output_size=IMAGE_MAX_SHAPE, dtype=int, device=device) if DENORMALIZE_SEQUENCES else 1
         
         plt.ion()
 
-        nextIndex = 0
+        nextIndex = 1500
         while nextIndex < len(dataset):
-            nextIndex += 1
-            while len(dataset.signals[nextIndex]) < MIN_DIM_SHOWOFF:
+            image, patched_image, padding, current_signal, label = dataset[nextIndex]
+            while len(current_signal) < MIN_DIM_SHOWOFF:
+                image, patched_image, padding, current_signal, label = dataset[nextIndex]
                 nextIndex += 1
-
-            current_signal = dataset.signals[nextIndex]
+            
+            current_signal = torch.tensor(current_signal, device=device)
+            patched_image = torch.tensor(patched_image, device=device)
+            padding = torch.tensor(padding, device=device)
 
             #Create image
-            fig, axs = plt.subplots(1, 4, figsize=(10, 10))
+            fig, axs = plt.subplots(1, 3, figsize=(10, 10))
             axs[0].set_title('Original image')
             axs[0].axis('off')
-            axs[1].set_title('Reconstructed image from sig')
+            axs[1].set_title('Patched image given to transformer, unpatched')
             axs[1].axis('off')
-            axs[2].set_title('Patched image given to transformer, unpatched')
+            axs[2].set_title('Predicted sequence from image, reconstructed')
             axs[2].axis('off')
-            axs[3].set_title('Predicted sequence from image, reconstructed')
-            axs[3].axis('off')
             plt.show(block=False)
 
-            image, padding, originalSignal = dataset.patchified_images[nextIndex], dataset.patches_padding_masks[nextIndex], dataset.signals_as_tensor[nextIndex]
-            image, padding, originalSignal = image.to(device), padding.to(device), torch.tensor(originalSignal, dtype=torch.float).to(device)
             print(f"Selecting random signal n°{nextIndex} of length {len(current_signal)}")
             fig.suptitle(f'Show-off on signal n°{nextIndex}, length {len(current_signal)}')
 
             #Re-create images for both
-            orig_image = dataset.images[nextIndex]
-            orig_image_reconstructed = image_from_result(originalSignal, mult_tensor, dataset.target_image_shape)
-            patched_image_unfolded = unfolder(image.cpu().unsqueeze(0).permute(0,2,1))[0][0].numpy()
+            orig_image = image_from_result(current_signal, mult_tensor, IMAGE_MAX_SHAPE)
+            print(image.shape)
+            print(torch.tensor(image).unsqueeze(0).shape)
+            # patched_image_unfolded = unfolder(torch.tensor(image).unsqueeze(0).permute(0,2,1))[0][0].numpy()
 
             axs[0].imshow(orig_image, cmap='gray')
-            axs[1].imshow(orig_image_reconstructed, cmap='gray')
-            axs[2].imshow(patched_image_unfolded, cmap='gray')
+            # axs[1].imshow(patched_image_unfolded, cmap='gray')
 
             with torch.no_grad():
                 #Limit generation to avoid infinite autoregression
-                resultSignal = originalSignal[:1]
-                working_signal = originalSignal[:1]
+                resultSignal = current_signal[:1]
+                working_signal = current_signal[:1]
 
-                result_image = image_from_result(resultSignal, mult_tensor, dataset.target_image_shape)
-                result_display = axs[3].imshow(result_image, cmap='gray', vmin=0, vmax=1)
+                result_image = image_from_result(resultSignal, mult_tensor, IMAGE_MAX_SHAPE)
+                result_display = axs[2].imshow(result_image, cmap='gray', vmin=0, vmax=1)
 
                 stop_signal = False
 
@@ -178,11 +170,11 @@ if __name__ == "__main__":
                 while not stop_signal:
                     print(f"\rGenerating point {i}")
 
-                    print(f"Initial signal around {i}:\n{originalSignal[max(i-5,0):i+5]}")
+                    print(f"Initial signal around {i}:\n{current_signal[max(i-5,0):i+5]}")
                     print(f"Last 5 result:\n{resultSignal[-5:]}")
                     print(f"Last 5 working:\n{working_signal[-5:]}")
 
-                    res = model.forward(image.unsqueeze(0), padding.unsqueeze(0), pack_sequence(working_signal.unsqueeze(0)))
+                    res = model.forward(patched_image.unsqueeze(0), padding.unsqueeze(0), pack_sequence(working_signal.unsqueeze(0)))
                     if not DENORMALIZE_SEQUENCES:
                         res = torch.round(res)
                         
@@ -201,11 +193,11 @@ if __name__ == "__main__":
                         res = closest_point_on_skeletton(orig_image, res)
 
                     if REPLACE_WITH_GOLDEN:
-                        working_signal = torch.vstack([working_signal, originalSignal[i]])
+                        working_signal = torch.vstack([working_signal, current_signal[i]])
                     else:
                         working_signal = torch.vstack([working_signal, res])
 
-                    result_image = image_from_result(resultSignal, mult_tensor, dataset.target_image_shape)
+                    result_image = image_from_result(resultSignal, mult_tensor, IMAGE_MAX_SHAPE)
                     result_display.set_data(result_image)
 
                     fig.canvas.draw()  # Redraw the canvas

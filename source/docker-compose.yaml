@@ -36,9 +36,7 @@ services:
 
       N_EPOCHS: 10
       LR: 0.0005
-      TRAIN_SIZE: 0.90
-      DATASET_SIZE: 0.10
-      DROPOUT_RATIO: 0.05
+      DatasetName: "dataset"
 
       WEIGHT_COORD: 1.0
       WEIGHT_SKELETON: 1.0
