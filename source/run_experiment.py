@@ -24,8 +24,6 @@ from source.criterions.losses_weights import LossesWeights
 
 import pickle
 import torch
-import random
-import numpy as np
 
 ENCODER_HEADS = 8
 DECODER_HEADS = 8
@@ -49,7 +47,7 @@ USE_PREDICTION_TOKEN = False
 USE_LSTM = False
 LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
-DATASET_SIZE = 0.001
+DATASET_NAME = "DATASET"
 IMAGE_MAX_SHAPE = (112, 112)
 
 LR = 0.001
