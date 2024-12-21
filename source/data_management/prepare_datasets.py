@@ -5,7 +5,7 @@ sys.path.insert(0, project_root)
 
 from source.data_management.brush.brush_dataset import BrushDataset
 from source.data_management.unipen.unipen_dataset import UnipenDataset
-from source.data_management.common.handwritting_dataset import HandWrittingDataset
+from source.data_management.common.handwritting_dataset import HandWrittingDataset, GaussianAugmentationMode
 from source.model.blocks.constants.files import *
 from source.model.blocks.constants.datasets_library import *
 from source.logging.log import logger, LogChannels
@@ -19,7 +19,6 @@ APPLY_GAUSSIAN_DATA_AUGMENT = True
 
 TEST_DATASET_FOLDER_NAME = "TEST_100_100_BRUSH"
 
-S_RATIO = 0.2
 M_RATIO = 0.5
 L_RATIO = 1.0
 
@@ -77,17 +76,23 @@ def train_test_signals(signals: list, ratio: float):
 
     return train, test
 
-
-def prepare_dataset(signals, dataset_folder, apply_gaussian_augment):
+def prepare_dataset(signals, dataset_folder, apply_gaussian_augment, only_last = False):
     print(F"Saving dataset of {len(signals)} signals on disk at {dataset_folder}")
-    HandWrittingDataset.prepare_and_save_training_data(signals, dataset_folder, PATCHES_DIM, LSTM_MODE, TARGET_IMAGE_SHAPE, NORMALIZE__COORDS, apply_gaussian_augment)
+    HandWrittingDataset.prepare_and_save_training_data(signals, dataset_folder, PATCHES_DIM, LSTM_MODE, TARGET_IMAGE_SHAPE, NORMALIZE__COORDS, apply_gaussian_augment, only_last)
     
 def prepare_inference_dataset():
-    pass
+    """Prepare an inference dataset that only cares about full signals"""
+    print("Preparing BRUSH inference...")
+    brush_datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, image_max_shape=(100,100))
+    
+    #Take large signals for inference
+    signals_sampled = random.choices([signal for signal in brush_datasource.signals if len(signal) > 50], k=1000)
+
+    prepare_dataset(signals_sampled, BRUSH_100_100_VALID_M, GaussianAugmentationMode.UNAUGMENTED, only_last=True)
 
 if __name__ == "__main__":
     logger.add_log_channel(LogChannels.DATA)
 
-    prepare_datasets()
+    #prepare_datasets()
 
-    #prepare_inference_dataset()
+    prepare_inference_dataset()

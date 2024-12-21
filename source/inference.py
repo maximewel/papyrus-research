@@ -16,6 +16,7 @@ from source.model.blocks.constants.sequence_to_image import ImageHelper
 from source.model.blocks.constants.device_helper import device
 from torch.nn.utils.rnn import pack_sequence
 from source.model.blocks.constants.tokens import Tokens
+from source.model.blocks.constants.datasets_library import *
 
 import torch
 import matplotlib.pyplot as plt
@@ -115,7 +116,7 @@ if __name__ == "__main__":
         from source.logging.log import logger, LogChannels
         logger.add_log_channel(LogChannels.DATA)
         
-        dataset = HandWrittingDataset("BRUSH_100.100_test_m_aug")
+        dataset = HandWrittingDataset(BRUSH_100_100_VALID_M)
 
         unfolder = torch.nn.Fold(output_size=IMAGE_MAX_SHAPE, kernel_size=PATCHES_DIM, stride=PATCHES_DIM)
         
@@ -123,12 +124,10 @@ if __name__ == "__main__":
         
         plt.ion()
 
-        nextIndex = 1500
+        nextIndex = 70
         while nextIndex < len(dataset):
             image, patched_image, padding, current_signal, label = dataset[nextIndex]
-            while len(current_signal) < MIN_DIM_SHOWOFF:
-                image, patched_image, padding, current_signal, label = dataset[nextIndex]
-                nextIndex += 1
+            nextIndex += 1
             
             current_signal = torch.tensor(current_signal, device=device)
             patched_image = torch.tensor(patched_image, device=device)
@@ -154,7 +153,6 @@ if __name__ == "__main__":
             # patched_image_unfolded = unfolder(torch.tensor(image).unsqueeze(0).permute(0,2,1))[0][0].numpy()
 
             axs[0].imshow(orig_image, cmap='gray')
-            # axs[1].imshow(patched_image_unfolded, cmap='gray')
 
             with torch.no_grad():
                 #Limit generation to avoid infinite autoregression

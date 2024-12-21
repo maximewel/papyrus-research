@@ -23,7 +23,7 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       # Used to change training
-      USE_BRUSH: 1
+      DatasetName: "dataset"
       NORMALIZE_COORDS: 0
       USE_PREDICTION_TOKEN: 0
       USE_LSTM: 0
@@ -32,11 +32,10 @@ services:
       BATCH_SIZE: 32
       PATCHES_DIM: "16, 16"
       EMBEDDING_DIMS: 256
-      IMAGE_MAX_SHAPE: "112, 112"
+      IMAGE_MAX_SHAPE: "96, 96"
 
-      N_EPOCHS: 10
-      LR: 0.0005
-      DatasetName: "dataset"
+      N_EPOCHS: 2
+      LR: 0.001
 
       WEIGHT_COORD: 1.0
       WEIGHT_SKELETON: 1.0

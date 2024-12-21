@@ -19,6 +19,17 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 
 from random import shuffle
+from enum import Enum, auto
+
+class GaussianAugmentationMode(Enum):
+    UNAUGMENTED = auto()
+    ONLY_AUGMENTED = auto()
+    MIXED_AUGMENTED_NON_AUGMENTED = auto()
+
+    @staticmethod
+    def hasGaussianNoise(gaussian_augmentation_mode: GaussianAugmentationMode):
+        return gaussian_augmentation_mode is GaussianAugmentationMode.ONLY_AUGMENTED \
+            or gaussian_augmentation_mode is GaussianAugmentationMode.MIXED_AUGMENTED_NON_AUGMENTED
 
 class HandWrittingDataset(Dataset):
     #Dataset variables
@@ -119,12 +130,12 @@ class HandWrittingDataset(Dataset):
             return self.collate_batch_lstm
         else:
             return self.collate_batch_transformer
-
+    
     ### Implementation of methods to go from numpy signals to workable tensors ###
     @classmethod
     def prepare_and_save_training_data(cls, signals: list[list], save_to_folder: str, patches_dim: tuple, lstm_mode: bool, 
                                        target_image_shape: tuple[int, int], normalize_coordinate_sequences: bool = True,
-                                       apply_data_augment_gaussian: bool = False):
+                                       augmentation_mode: GaussianAugmentationMode = GaussianAugmentationMode.UNAUGMENTED, only_last: bool = False):
         """
         Transform the data to homogeneous tensors on a rolling window
         Save tensors on disk to be loaded on demand
@@ -154,7 +165,7 @@ class HandWrittingDataset(Dataset):
                 sequences_as_tensor = cls.sequences_to_tensor(subsequence, target_image_shape, normalize_coordinate_sequences)
                 images = cls.build_images(subsequence)
                 patchified_images, patchified_masks = cls.images_to_tensor(images, patches_dim, target_image_shape)
-                signal_subsequences, signal_labels = cls.extract_all_predictable_from_tensor(sequences_as_tensor, lstm_mode, apply_data_augment_gaussian)
+                signal_subsequences, signal_labels = cls.extract_all_predictable_from_tensor(sequences_as_tensor, lstm_mode, augmentation_mode, only_last)
 
                 #Save sequences to disk
                 for i in range(len(sequences_as_tensor)):
@@ -289,10 +300,14 @@ class HandWrittingDataset(Dataset):
         return signals_as_tensor
 
     @classmethod
-    def extract_all_predictable_from_tensor(cls, signals_as_tensor: list[torch.Tensor], lstm_mode: bool, apply_gaussian_data_augmentation: bool) -> torch.Tensor:
+    def extract_all_predictable_from_tensor(cls, signals_as_tensor: list[torch.Tensor], lstm_mode: bool, 
+                                            augmentation_mode: GaussianAugmentationMode, only_last: bool = False) -> torch.Tensor:
         """Extract all the predictable values (datapoints) from a tensor
         ie: for a tensor of length i, generate i-1 sequences of [0:i] where the goal is to generate sequence i+1
         
+        Args
+        -----
+
         """
         #We do not want the data to be on GPU
         signals_subsequences = []
@@ -311,7 +326,7 @@ class HandWrittingDataset(Dataset):
             labels_current_signal = []
 
             #If necessary, apply gaussian noise to signal (generated for each sequence)
-            if apply_gaussian_data_augmentation:
+            if GaussianAugmentationMode.hasGaussianNoise(augmentation_mode):
                 gaussian_noise = torch.normal(mean=cls.GAUSS_MEAN, std=cls.GAUSS_STD, size=signal.shape)
                 #Important: Remove EOS from being noised
                 gaussian_noise[-1, :] = 0
@@ -326,18 +341,23 @@ class HandWrittingDataset(Dataset):
                 #J Starts at 1 as we expect to always have at least 1 data (The starting point) to predict
                 subsequence = torch.Tensor(signal[:j])
                 label = torch.Tensor(signal[j])
-                subsequences_current_signal.append(subsequence)
-                labels_current_signal.append(label)
+                if augmentation_mode is not GaussianAugmentationMode.ONLY_AUGMENTED:
+                    subsequences_current_signal.append(subsequence)
+                    labels_current_signal.append(label)
 
                 #Take the noised sub-sequence and the original label to avoid learning to predict 'out-of-skeleton' samples
-                if apply_gaussian_data_augmentation:
+                if GaussianAugmentationMode.hasGaussianNoise(augmentation_mode):
                     noised_subsequence = torch.Tensor(noised_signal[:j])
                     orig_label = torch.Tensor(signal[j])
                     subsequences_current_signal.append(noised_subsequence)
                     labels_current_signal.append(orig_label)
-        
-            signals_subsequences.append(subsequences_current_signal)
-            signals_labels.append(labels_current_signal)
+
+            if only_last:
+                signals_subsequences.append([subsequences_current_signal[-1]])
+                signals_labels.append([labels_current_signal[-1]])
+            else:
+                signals_subsequences.append(subsequences_current_signal)
+                signals_labels.append(labels_current_signal)
 
         return signals_subsequences, signals_labels
 
