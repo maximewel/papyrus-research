@@ -170,7 +170,7 @@ if __name__ == "__main__":
                           use_lstm=use_lstm, lstm_module=lstm_model,
                           n_encoder_layers=encoder_layers, n_encoder_heads=encoder_heads, enc_dec_dropout_ratio=dropout_ratio,
                           n_decoder_layers=decoder_layers, n_decoder_heads=decoder_heads,
-                          encoder_patch_dimension=patches_dim, fixed_size_image_dimension=IMAGE_MAX_SHAPE,
+                          encoder_patch_dimension=patches_dim, fixed_size_image_dimension=image_max_shape,
                           autoregressive_target_seq_len=autoregress_target_len,
                           make_positional_encodings_trainable=make_positional_encoding_learnable)
 
@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
     #Start training
     try:
-        return_figures = do_training(model, train_loader, test_loader, device, n_epochs, lr, normalize_coords, IMAGE_MAX_SHAPE, losses_weights)
+        return_figures = do_training(model, train_loader, test_loader, device, n_epochs, lr, normalize_coords, image_max_shape, losses_weights)
     except Exception as e:
         print(f"Encountered exception while training model: {e}")
         raise e
