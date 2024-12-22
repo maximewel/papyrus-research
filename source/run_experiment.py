@@ -43,23 +43,25 @@ EMBEDDING_DIMS = 256
 
 NORMALIZE_COORDS = False
 
+TRAIN_DATASET_NAME = ""
+TEST_DATASET_NAME = ""
+
 USE_PREDICTION_TOKEN = False
 USE_LSTM = False
 LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
-DATASET_NAME = "DATASET"
+TRAIN_DATASET_NAME = BRUSH_100_100_TRAIN_M_AUGMENTED
+TEST_DATASET_NAME = BRUSH_100_100_TEST_M_AUGMENTED
 IMAGE_MAX_SHAPE = (112, 112)
 
 LR = 0.001
 N_EPOCHS = 5
 TRAIN_SIZE = 0.8
 
-USE_BRUSH = True
-
 WEIGHT_COORD = 1
 WEIGHT_SKELETON = 1
 
-def save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder_layers, autoregress_target_len, dropout_ratio, batch_size, patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path, lr, n_epochs, use_brush, model, return_figures):
+def save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder_layers, autoregress_target_len, dropout_ratio, batch_size, patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path, lr, n_epochs, dataset_name, model, return_figures):
     date = datetime.now().strftime('%Y-%m-%d %H-%M-%S')
     folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, TRANSFORMER_FOLDER, f"{date}")
     os.makedirs(folderPath, exist_ok=True)
@@ -79,7 +81,7 @@ def save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder
                 pickle.dump(figure, f)
         
     filepath = os.path.join(folderPath, ID_CARD_FILE)
-    id_card = IdCardCreator.create_transfo_id_card(use_brush, lr, n_epochs, batch_size, 
+    id_card = IdCardCreator.create_transfo_id_card(dataset_name, lr, n_epochs, batch_size, 
                                                        encoder_layers, decoder_layers, encoder_heads, decoder_heads, 
                                                        dropout_ratio, autoregress_target_len, 
                                                        patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path)
@@ -105,6 +107,9 @@ if __name__ == "__main__":
 
     print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
+    training_dataset_name = os.getenv('TRAIN_DATASET_NAME', TRAIN_DATASET_NAME)
+    test_dataset_name = os.getenv('TEST_DATASET_NAME', TEST_DATASET_NAME)
+
     encoder_heads = int(os.getenv('ENCODER_HEADS', ENCODER_HEADS))
     decoder_heads = int(os.getenv('DECODER_HEADS', DECODER_HEADS))
     encoder_layers = int(os.getenv('ENCODER_LAYERS', ENCODER_LAYERS))
@@ -126,12 +131,9 @@ if __name__ == "__main__":
     lstm_model_path = os.getenv('LSTM_MODEL_PATH', LSTM_MODEL_PATH)
 
     train_size = float(os.getenv('TRAIN_SIZE', TRAIN_SIZE))
-    dataset_size = float(os.getenv('DATASET_SIZE', DATASET_SIZE))
 
     lr = float(os.getenv('LR', LR))
     n_epochs = int(os.getenv('N_EPOCHS', N_EPOCHS))
-
-    use_brush = bool(int(os.getenv('USE_BRUSH', int(USE_BRUSH))))
 
     weight_coord = float(os.getenv('WEIGHT_COORD', WEIGHT_COORD))
     weight_skeleton = float(os.getenv('WEIGHT_SKELETON', WEIGHT_SKELETON))
@@ -152,8 +154,8 @@ if __name__ == "__main__":
     
     do_pin_memory = device != 'cpu'
 
-    train_dataset = HandWrittingDataset(BRUSH_100_100_TRAIN_M_AUGMENTED, False)
-    test_dataset = HandWrittingDataset(BRUSH_100_100_TEST_M_AUGMENTED, False)
+    train_dataset = HandWrittingDataset(training_dataset_name, False)
+    test_dataset = HandWrittingDataset(test_dataset_name, False)
 
     logger.log(LogChannels.INIT, f"Using n° points to predict: Train={len(train_dataset)}, Test={len(test_dataset)}")
 
@@ -184,4 +186,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print(f"Training interrupted")
     finally:
-        save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder_layers, autoregress_target_len, dropout_ratio, batch_size, patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path, lr, n_epochs, use_brush, model, return_figures)
+        save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder_layers, autoregress_target_len, dropout_ratio, batch_size, patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path, lr, n_epochs, (training_dataset_name, test_dataset_name), model, return_figures)

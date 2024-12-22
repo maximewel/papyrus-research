@@ -23,7 +23,9 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       # Used to change training
-      DatasetName: "dataset"
+      TRAIN_DATASET_NAME: "brush_96.96_train_s_aug"
+      TEST_DATASET_NAME: "brush_96.96_test_s_aug"
+
       NORMALIZE_COORDS: 0
       USE_PREDICTION_TOKEN: 0
       USE_LSTM: 0
@@ -43,7 +45,7 @@ services:
       ENCODER_HEADS: 8
       DECODER_HEADS: 8
 
-      ENCODER_LAYERS: 12
-      DECODER_LAYERS: 12
+      ENCODER_LAYERS: 6
+      DECODER_LAYERS: 6
       AUTOREGRESS_TARGET_LEN: 500
       MAKE_POSITIONAL_ENCODING_LEARNABLE: 1

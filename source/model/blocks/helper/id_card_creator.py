@@ -12,7 +12,7 @@ class IdCardCreator:
         return json.dumps(card, indent=4)
     
     @classmethod
-    def create_transfo_id_card(cls, use_brush, lr, epochs, batch_size,
+    def create_transfo_id_card(cls, dataset_name, lr, epochs, batch_size,
                                     encoder_layers, decoder_layers, encoder_heads, decoder_heads,
                                     dropout_ratio, autoregressive_target_length, 
                                     patches_dim, embedding_dimension,
@@ -20,7 +20,7 @@ class IdCardCreator:
         card = {}
 
         card[TRAINING] = {
-            DATASET: "BRUSH" if use_brush else "UNIPEN",
+            DATASET: dataset_name,
             LR: lr,
             N_EPOCHS: epochs,
             BATCH_SIZE: batch_size,
