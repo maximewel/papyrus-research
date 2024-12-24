@@ -27,8 +27,8 @@ class SkeletonLoss(nn.Module):
     
     ## Coords are expected to be [0,1] and are normalized within the dataset target length (the maximum shape of an image)
     ## As such, clamping coordinates by the model between [0,5] prevent us from building nonsensical images
-    MIN_COORD_CLIP = 0
-    MAX_COORD_CLIP = 2
+    MIN_COORD_CLIP = (0, 0)
+    MAX_COORD_CLIP = (2, 2)
 
     def __init__(self, normalized_sequences:bool, dataset_image_shape: tuple, display: bool = False, mode: SkeletonLossMode = SkeletonLossMode.SUM_PIX):
         super().__init__()
@@ -39,9 +39,12 @@ class SkeletonLoss(nn.Module):
         
         self.mult_tensor = torch.tensor(self.dataset_image_shape, dtype=int) if self.normalized_sequences else 1
 
-
         if not self.normalized_sequences:
-            self.MAX_COORD_CLIP *= max(dataset_image_shape)
+            self.MAX_COORD_CLIP = (dataset_image_shape[0]*self.MAX_COORD_CLIP[0], dataset_image_shape[1]*self.MAX_COORD_CLIP[1])
+        
+        #Format in order to clamp by dimension
+        self.MIN_COORD_CLIP = torch.FloatTensor(self.MIN_COORD_CLIP).unsqueeze(0)
+        self.MAX_COORD_CLIP = torch.FloatTensor(self.MAX_COORD_CLIP).unsqueeze(0)
         
         self.max_distance_in_image = max(dataset_image_shape)
 

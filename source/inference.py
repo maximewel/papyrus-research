@@ -6,8 +6,6 @@ sys.path.insert(0, project_root)
 
 from source.model.blocks.constants.files import *
 
-from source.data_management.brush.brush_dataset import BrushDataset
-from source.data_management.unipen.unipen_dataset import UnipenDataset
 from source.data_management.common.handwritting_dataset import HandWrittingDataset
 from source.model.hw_model import HwTransformer
 from source.model.blocks.hw_lstm import HwLstm
@@ -23,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 
-folder_model_to_load = "BRUSH_AUGMENTED"
+folder_model_to_load = "2024-12-24 12-06-43"
 USE_LSTM = False
 folder_lstm_model_to_load = ""
 
@@ -39,7 +37,7 @@ REPLACE_WITH_GOLDEN = False
 REPLACE_ON_SKELETON = False
 REPLACE_ON_SKELETON_ON_RES = False
 
-IMAGE_MAX_SHAPE = (112, 112)
+IMAGE_MAX_SHAPE = (96, 96)
 
 WRITER_ID = 1
 
@@ -116,7 +114,7 @@ if __name__ == "__main__":
         from source.logging.log import logger, LogChannels
         logger.add_log_channel(LogChannels.DATA)
         
-        dataset = HandWrittingDataset(BRUSH_100_100_VALID_M)
+        dataset = HandWrittingDataset(BRUSH_96_96_VALID_S)
 
         unfolder = torch.nn.Fold(output_size=IMAGE_MAX_SHAPE, kernel_size=PATCHES_DIM, stride=PATCHES_DIM)
         
@@ -124,7 +122,7 @@ if __name__ == "__main__":
         
         plt.ion()
 
-        nextIndex = 70
+        nextIndex = 800
         while nextIndex < len(dataset):
             image, patched_image, padding, current_signal, label = dataset[nextIndex]
             nextIndex += 1

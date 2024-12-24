@@ -49,8 +49,8 @@ class Patchificator():
         # Initialize padded images and padding masks
         logger.log(LogChannels.DIMENSIONS, f"Creating padding images tensors of shape [{total_data_size}, {1}, {W}, {H}]")
         # '1' correspond to channel, assume 1 (would be easy to adapt to multiple channels)
-        padded_images = torch.zeros((total_data_size, 1, W, H), dtype=float)
-        padding_masks = torch.ones((total_data_size, 1, W, H)) 
+        padded_images = torch.zeros((total_data_size, 1, H, W), dtype=float)
+        padding_masks = torch.ones((total_data_size, 1, H, W)) 
 
         # Copy original images into the padded tensor and create the padding mask
         for i in range(len(images)):

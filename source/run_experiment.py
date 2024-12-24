@@ -6,12 +6,9 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 from source.loops import do_training
-from source.data_management.brush.brush_dataset import BrushDataset
-from source.data_management.unipen.unipen_dataset import UnipenDataset
 from source.data_management.common.handwritting_dataset import HandWrittingDataset
 from source.model.blocks.hw_lstm import HwLstm
 from torch.utils.data import DataLoader
-from sklearn.model_selection import train_test_split
 
 from source.model.hw_model import HwTransformer
 from source.logging.log import logger, LogChannels
@@ -28,35 +25,31 @@ import torch
 ENCODER_HEADS = 8
 DECODER_HEADS = 8
 
-ENCODER_LAYERS = 12
-DECODER_LAYERS = 12
+ENCODER_LAYERS = 6
+DECODER_LAYERS = 6
 
-AUTOREGRESS_TARGET_LEN = 500
+AUTOREGRESS_TARGET_LEN = 100
 
 MAKE_POSITIONAL_ENCODING_LEARNABLE = False
 
 DROPOUT_RATIO = 0.1
-BATCH_SIZE = 8
+BATCH_SIZE = 64
 
 PATCHES_DIM = (16, 16)
 EMBEDDING_DIMS = 256
 
 NORMALIZE_COORDS = False
 
-TRAIN_DATASET_NAME = ""
-TEST_DATASET_NAME = ""
-
 USE_PREDICTION_TOKEN = False
 USE_LSTM = False
 LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
-TRAIN_DATASET_NAME = BRUSH_100_100_TRAIN_M_AUGMENTED
-TEST_DATASET_NAME = BRUSH_100_100_TEST_M_AUGMENTED
-IMAGE_MAX_SHAPE = (112, 112)
+TRAIN_DATASET_NAME = BRUSH_96_96_TRAIN_S_UNAUGMENTED
+TEST_DATASET_NAME = BRUSH_96_96_TEST_S_UNAUGMENTED
+IMAGE_MAX_SHAPE = (96, 96)
 
 LR = 0.001
-N_EPOCHS = 5
-TRAIN_SIZE = 0.8
+N_EPOCHS = 1
 
 WEIGHT_COORD = 1
 WEIGHT_SKELETON = 1
@@ -129,8 +122,6 @@ if __name__ == "__main__":
     use_prediction_token = bool(int(os.getenv('USE_PREDICTION_TOKEN', int(USE_PREDICTION_TOKEN))))
     use_lstm = bool(int(os.getenv('USE_LSTM', int(USE_LSTM))))
     lstm_model_path = os.getenv('LSTM_MODEL_PATH', LSTM_MODEL_PATH)
-
-    train_size = float(os.getenv('TRAIN_SIZE', TRAIN_SIZE))
 
     lr = float(os.getenv('LR', LR))
     n_epochs = int(os.getenv('N_EPOCHS', N_EPOCHS))

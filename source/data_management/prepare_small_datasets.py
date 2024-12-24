@@ -18,6 +18,9 @@ NORMALIZE__COORDS = False
 S_RATIO = 0.05
 TRAIN_RATIO = 0.8
 
+WORKING_SIGNAL_LOW_THRESHOLD = 15
+VALID_SIGNAL_MEDIUM_THRESHOLD = 50
+
 def prepare_datasets():
     print("Preparing small datasets...")
     brush_datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, image_max_shape=TARGET_IMAGE_SHAPE)
@@ -26,20 +29,21 @@ def prepare_datasets():
 
     prepare_dataset(train, BRUSH_96_96_TRAIN_S_UNAUGMENTED, GaussianAugmentationMode.UNAUGMENTED)
     prepare_dataset(test, BRUSH_96_96_TEST_S_UNAUGMENTED, GaussianAugmentationMode.UNAUGMENTED)
-    prepare_dataset(valid, BRUSH_96_96_VALID_S_UNAUGMENTED, GaussianAugmentationMode.UNAUGMENTED, only_last=True)
+    prepare_dataset(valid, BRUSH_96_96_VALID_S, GaussianAugmentationMode.UNAUGMENTED, only_last=True)
 
     prepare_dataset(train, BRUSH_96_96_TRAIN_S_AUGMENTED, GaussianAugmentationMode.ONLY_AUGMENTED)
     prepare_dataset(test, BRUSH_96_96_TEST_S_AUGMENTED, GaussianAugmentationMode.ONLY_AUGMENTED)
-    prepare_dataset(valid, BRUSH_96_96_VALID_S_AUGMENTED, GaussianAugmentationMode.ONLY_AUGMENTED, only_last=True)
 
     prepare_dataset(train, BRUSH_96_96_TRAIN_S_MIXED, GaussianAugmentationMode.MIXED_AUGMENTED_NON_AUGMENTED)
     prepare_dataset(test, BRUSH_96_96_TEST_S_MIXED, GaussianAugmentationMode.MIXED_AUGMENTED_NON_AUGMENTED)
-    prepare_dataset(valid, BRUSH_96_96_VALID_S_MIXED, GaussianAugmentationMode.MIXED_AUGMENTED_NON_AUGMENTED, only_last=True)
 
 def train_test_valid_signals(signals: list) -> tuple[list, list, list]:
+    l = int(S_RATIO*len(signals))
+
+    #Cut very little information signals
+    signals = list(filter(lambda sig: len(sig) >= WORKING_SIGNAL_LOW_THRESHOLD, signals))
     random.shuffle(signals)
 
-    l = int(S_RATIO*len(signals))
     signals_train_test = signals[:l]
     signals_valid = signals[l:]
 
@@ -48,7 +52,8 @@ def train_test_valid_signals(signals: list) -> tuple[list, list, list]:
     train = signals_train_test[:split_index]
     test = signals_train_test[split_index:]
 
-    valid = random.choices([signal for signal in signals_valid if len(signal) >= 50], k=1000)
+    valid = random.choices([signal for signal in signals_valid if len(signal) <= VALID_SIGNAL_MEDIUM_THRESHOLD], k=1000)
+    valid += random.choices([signal for signal in signals_valid if len(signal) > VALID_SIGNAL_MEDIUM_THRESHOLD], k=1000)
 
     return train, test, valid
 
