@@ -1,0 +1,3 @@
+trial_id,date,timestamp,pid,hostname,node_ip,config/datasets,config/pred_token,config/use_lstm,config/positional_learnable
+36656_00000,2024-12-24_17-36-27,1735058187,35548,MaximeWel,127.0.0.1,"('brush_96.96_train_s_mixed', 'brush_96.96_test_s_mixed')",False,False,False
+36656_00001,2024-12-24_17-36-27,1735058187,37560,MaximeWel,127.0.0.1,"('brush_96.96_train_s_aug', 'brush_96.96_test_s_aug')",True,False,True

@@ -54,6 +54,7 @@ class HandWrittingDataset(Dataset):
         self.dataset_folder_name = dataset_folder_name
 
         subsequences_path = self.datafolder_subsequence_path(dataset_folder_name)
+
         self.size = len(os.listdir(subsequences_path))
         logger.log(LogChannels.DATA, f"Detected {self.size} datapoints on datasetfolder {subsequences_path}")
     
@@ -220,7 +221,8 @@ class HandWrittingDataset(Dataset):
 
     @classmethod
     def datafolder_path(cls, save_folder: str):
-        return os.path.join(DATA_ROOT, DATASET_FOLDER, save_folder)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(current_dir, '..', '..', '..', DATA_ROOT, DATASET_FOLDER, save_folder)
     
     @classmethod
     def datafolder_sequence_path(cls, save_folder: str):

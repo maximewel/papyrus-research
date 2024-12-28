@@ -29,21 +29,21 @@ from ray.tune.schedulers import ASHAScheduler
 
 #Fixed constants for the structural hyper-parameter search
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_FILENAME = ""
+LSTM_MODEL = "lstm_96.96_augmented"
 EMBEDDING_DIMS = 256
-AUTOREGRESS_TARGET_LENGTH=100,
+AUTOREGRESS_TARGET_LENGTH= 100
 N_LAYERS = 6
 N_HEADS = 8
-DROPOUT_RATIO=0.1
+DROPOUT_RATIO= 0.1
 PATCH_DIM = (16, 16)
-IMAGE_SHAPE = (48, 96)
+IMAGE_SHAPE = (96, 96)
 W_LOSS = 1
-BATCH_SIZE = 32
+BATCH_SIZE = 256
 LR = 1e-4
 
 #Keys used in configuration dict
 class StructuralParameters(Enum):
-    DATASET_NAMES = "dataset_names"
+    DATASETS = "datasets"
     USE_PRED_TOKEN = "pred_token"
     USE_LSTM = "use_lstm"
     IS_POSITION_LEARNABLE = "positional_learnable"
@@ -74,9 +74,11 @@ def train_loop(config: dict, checkpoint_dir=None):
     use_lstm = config[StructuralParameters.USE_LSTM.value]
     if use_lstm:
         #Load pre-trained LSTM model
-        folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, LSTM_FOLDER)
-        filepath = os.path.join(folderPath, MODEL_FILENAME)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        relative_dir = os.path.join(MODEL_FOLDER, LSTM_FOLDER)
+        filepath = os.path.join(current_dir, relative_dir, LSTM_MODEL, MODEL_FILENAME)
         print(f"Loading LSTM model from: {filepath}")
+
         lstm_model: HwLstm = torch.load(filepath)
         #Freeze model as we have a pre-trained LSTM model that doesnt need to learn in this step
         for param in lstm_model.parameters():
@@ -86,9 +88,10 @@ def train_loop(config: dict, checkpoint_dir=None):
 
     do_pin_memory = True
 
-    train_dataset, test_dataset = config[StructuralParameters.DATASET_NAMES.value]
-    train_dataset = HandWrittingDataset(train_dataset, False)
-    test_dataset = HandWrittingDataset(test_dataset, False)
+    train_dataset_name, test_dataset_name = config[StructuralParameters.DATASETS.value]
+
+    train_dataset = HandWrittingDataset(train_dataset_name, lstm_mode=False)
+    test_dataset = HandWrittingDataset(test_dataset_name, lstm_mode=False)
 
     train_loader = DataLoader(train_dataset, shuffle=True, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=train_dataset.get_collate_function())
     test_loader = DataLoader(test_dataset, shuffle=False, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=test_dataset.get_collate_function())
@@ -163,15 +166,24 @@ def train_loop(config: dict, checkpoint_dir=None):
             "test_loss": test_loss
         }
 
+def trial_name_creator(trial):
+    config: dict = trial.config
+    augment_mode = config[StructuralParameters.DATASETS.value][0].split('_')[-1]
+
+    return f"augment_mode={augment_mode}_lstm={config[StructuralParameters.USE_LSTM.value]}_pred_tok={config[StructuralParameters.USE_PRED_TOKEN.value]}_learn-pos={config[StructuralParameters.IS_POSITION_LEARNABLE.value]}"
 
 if __name__ == "__main__":
     # Search space for hyperparameters
+    augmented_datasets = (HandWrittingDataset(BRUSH_96_96_TRAIN_S_AUGMENTED), HandWrittingDataset(BRUSH_96_96_TEST_S_AUGMENTED))
+    unaugmented_datasets = (HandWrittingDataset(BRUSH_96_96_TRAIN_S_UNAUGMENTED), HandWrittingDataset(BRUSH_96_96_TEST_S_UNAUGMENTED))
+    mixed_datasets = (HandWrittingDataset(BRUSH_96_96_TRAIN_S_MIXED), HandWrittingDataset(BRUSH_96_96_TEST_S_MIXED))
+
+    augmented_datasets = (BRUSH_96_96_TRAIN_S_AUGMENTED, BRUSH_96_96_TEST_S_AUGMENTED)
+    unaugmented_datasets = (BRUSH_96_96_TRAIN_S_UNAUGMENTED, BRUSH_96_96_TEST_S_UNAUGMENTED)
+    mixed_datasets = (BRUSH_96_96_TRAIN_S_MIXED, BRUSH_96_96_TEST_S_MIXED)
+
     search_space = {
-        StructuralParameters.DATASET_NAMES.value: tune.choice([
-                                        (BRUSH_96_96_TRAIN_S_AUGMENTED, BRUSH_96_96_TEST_S_AUGMENTED), 
-                                        (BRUSH_96_96_TRAIN_S_UNAUGMENTED, BRUSH_96_96_TEST_S_UNAUGMENTED), 
-                                        (BRUSH_96_96_TRAIN_S_MIXED, BRUSH_96_96_TEST_S_MIXED)
-                                    ]),
+        StructuralParameters.DATASETS.value: tune.choice([augmented_datasets, unaugmented_datasets, mixed_datasets]),
         StructuralParameters.USE_PRED_TOKEN.value: tune.choice([True, False]),
         StructuralParameters.USE_LSTM.value: tune.choice([True, False]),
         StructuralParameters.IS_POSITION_LEARNABLE.value: tune.choice([True, False])
@@ -180,16 +192,18 @@ if __name__ == "__main__":
     scheduler = ASHAScheduler(
         metric="test_loss", 
         mode="min", 
-        max_t=5,
+        max_t=10,
         reduction_factor=2
     )
 
     analysis = tune.run(
         train_loop,
+        trial_name_creator=trial_name_creator,
         config=search_space,
         scheduler=scheduler,
         num_samples=24,
-        resources_per_trial={"cpu": 6, "gpu": 1}
+        resources_per_trial = { "gpu": 0.5 },
+        max_concurrent_trials = 2
     )
 
     # Print the best hyperparameters

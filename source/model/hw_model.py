@@ -127,10 +127,10 @@ class HwTransformer(nn.Module):
         #The decoder positional embeddings are added to the target sequence embeddings
         self.decoder_dim = self.autoregressive_target_seq_len
         if self.use_prediction_token:
-            logger.log(LogChannels.DIMENSIONS, f"Use prediction token, going from {self.decoder_dim} to {self.decoder_dim+1}")
+            logger.log(LogChannels.DIMENSIONS, f"Use prediction token, going from {self.decoder_dim} to {self.decoder_dim + 1}")
             self.decoder_dim += 1
         if self.use_lstm:
-            logger.log(LogChannels.DIMENSIONS, f"Use LSTM, going from {self.decoder_dim} to {self.decoder_dim+1}")
+            logger.log(LogChannels.DIMENSIONS, f"Use LSTM, going from {self.decoder_dim} to {self.decoder_dim + 1}")
             self.decoder_dim += 1
         self.decoder_positional_embeddings = nn.Parameter(self.get_positional_embeddings(self.decoder_dim, self.hidden_dim))
         self.decoder_positional_embeddings.requires_grad = self.make_positional_encodings_trainable

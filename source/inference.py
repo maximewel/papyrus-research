@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 
-folder_model_to_load = "2024-12-24 12-06-43"
+folder_model_to_load = "brush_96_10epochs_pred"
 USE_LSTM = False
 folder_lstm_model_to_load = ""
 
@@ -38,8 +38,6 @@ REPLACE_ON_SKELETON = False
 REPLACE_ON_SKELETON_ON_RES = False
 
 IMAGE_MAX_SHAPE = (96, 96)
-
-WRITER_ID = 1
 
 tolerance = 0.0001
 def has_identical_last_values(tensor, n: int) -> bool:
@@ -122,7 +120,7 @@ if __name__ == "__main__":
         
         plt.ion()
 
-        nextIndex = 800
+        nextIndex = 1000
         while nextIndex < len(dataset):
             image, patched_image, padding, current_signal, label = dataset[nextIndex]
             nextIndex += 1
