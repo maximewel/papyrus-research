@@ -44,6 +44,9 @@ W_LOSS = 1
 BATCH_SIZE = 512
 LR = 1e-3
 
+TRAIN_DATASET = HandWrittingDataset(BRUSH_96_96_TRAIN_S_AUGMENTED)
+TEST_DATASET = HandWrittingDataset(BRUSH_96_96_TEST_S_AUGMENTED)
+
 MAX_ITER = 4
 
 #Keys used in configuration dict
@@ -91,13 +94,8 @@ def train_loop(config: dict):
 
     do_pin_memory = True
 
-    train_dataset_name, test_dataset_name = config[StructuralParameters.DATASETS.value]
-
-    train_dataset = HandWrittingDataset(train_dataset_name, lstm_mode=False)
-    test_dataset = HandWrittingDataset(test_dataset_name, lstm_mode=False)
-
-    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=train_dataset.get_collate_function())
-    test_loader = DataLoader(test_dataset, shuffle=False, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=test_dataset.get_collate_function())
+    train_loader = DataLoader(TRAIN_DATASET, shuffle=True, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=TRAIN_DATASET.get_collate_function())
+    test_loader = DataLoader(TEST_DATASET, shuffle=False, batch_size=BATCH_SIZE, pin_memory=do_pin_memory, collate_fn=TEST_DATASET.get_collate_function())
     
     #Init the transformer model
     model = HwTransformer(use_lstm=use_lstm, lstm_module=lstm_model,
@@ -210,12 +208,7 @@ def trial_name_creator(trial):
 
 if __name__ == "__main__":
     # Search space for hyperparameters
-    augmented_datasets = (BRUSH_96_96_TRAIN_S_AUGMENTED, BRUSH_96_96_TEST_S_AUGMENTED)
-    unaugmented_datasets = (BRUSH_96_96_TRAIN_S_UNAUGMENTED, BRUSH_96_96_TEST_S_UNAUGMENTED)
-    mixed_datasets = (BRUSH_96_96_TRAIN_S_MIXED, BRUSH_96_96_TEST_S_MIXED)
-
     search_space = {
-        StructuralParameters.DATASETS.value: tune.grid_search([augmented_datasets, unaugmented_datasets, mixed_datasets]),
         StructuralParameters.USE_PRED_TOKEN.value: tune.grid_search([True, False]),
         StructuralParameters.USE_LSTM.value: tune.grid_search([True, False]),
         StructuralParameters.IS_POSITION_LEARNABLE.value: tune.grid_search([True, False])
