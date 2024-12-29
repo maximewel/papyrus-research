@@ -51,7 +51,6 @@ MAX_ITER = 4
 
 #Keys used in configuration dict
 class StructuralParameters(Enum):
-    DATASETS = "datasets"
     USE_PRED_TOKEN = "pred_token"
     USE_LSTM = "use_lstm"
     IS_POSITION_LEARNABLE = "positional_learnable"
@@ -200,12 +199,6 @@ def train_loop(config: dict):
                     checkpoint=Checkpoint.from_directory(save_checkpoint_dir)
                 )
 
-def trial_name_creator(trial):
-    config: dict = trial.config
-    augment_mode = config[StructuralParameters.DATASETS.value][0].split('_')[-1]
-
-    return f"augment-mode={augment_mode}_lstm={config[StructuralParameters.USE_LSTM.value]}_pred-tok={config[StructuralParameters.USE_PRED_TOKEN.value]}_learn-pos={config[StructuralParameters.IS_POSITION_LEARNABLE.value]}"
-
 if __name__ == "__main__":
     # Search space for hyperparameters
     search_space = {
@@ -224,7 +217,6 @@ if __name__ == "__main__":
 
     analysis = tune.run(
         train_loop,
-        trial_name_creator=trial_name_creator,
         config=search_space,
         scheduler=scheduler,
         num_samples=1,
