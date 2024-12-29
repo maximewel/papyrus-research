@@ -22,12 +22,13 @@ from source.criterions.skeleton_loss import SkeletonLoss, SkeletonLossMode
 from source.criterions.losses_weights import LossesWeights
 from source.model.blocks.constants.tokens import Tokens
 from source.model.blocks.constants.datasets_library import *
+import json
 
 import numpy as np
 from enum import Enum
 from ray import tune, train
 from ray.train import Checkpoint
-from ray.tune.schedulers import MedianStoppingRule, ASHAScheduler
+from ray.tune.schedulers import MedianStoppingRule
 
 #Fixed constants for the structural hyper-parameter search
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -40,10 +41,10 @@ DROPOUT_RATIO= 0.1
 PATCH_DIM = (16, 16)
 IMAGE_SHAPE = (96, 96)
 W_LOSS = 1
-BATCH_SIZE = 64
+BATCH_SIZE = 512
 LR = 1e-3
 
-MAX_ITER = 6
+MAX_ITER = 4
 
 #Keys used in configuration dict
 class StructuralParameters(Enum):
@@ -155,8 +156,6 @@ def train_loop(config: dict):
             
             train_loss += loss.detach().cpu().item()
 
-            #TODO DEL test
-            break
         train_loss /= len(train_loader)
         train_losses.append(train_loss)
 
@@ -180,8 +179,6 @@ def train_loop(config: dict):
                 loss = (coord_loss + Skeleton_loss) / losses_weights.total_weights
                 test_loss += loss.detach().cpu().item()
 
-                #TODO DEL test
-                break
             test_loss /= len(test_loader)
             test_losses.append(test_loss)
 
@@ -224,21 +221,12 @@ if __name__ == "__main__":
         StructuralParameters.IS_POSITION_LEARNABLE.value: tune.choice([True, False])
     }
 
-    # In case of median stopping, but ashas can be favored (less overall runs)
-    # scheduler = MedianStoppingRule(
-    #     time_attr="training_iteration",
-    #     metric="test_loss", 
-    #     mode="min", 
-    #     grace_period=2
-    # )
-
-    scheduler = ASHAScheduler(
+    scheduler = MedianStoppingRule(
         time_attr="training_iteration",
         metric="test_loss", 
-        mode="min", 
-        max_t=MAX_ITER,
+        mode="min",
         grace_period=2,
-        reduction_factor=2,
+        min_samples_required=3
     )
 
     analysis = tune.run(
@@ -256,8 +244,7 @@ if __name__ == "__main__":
 
     # Save results
     df = analysis.results_df
-    df.to_csv("~/ray_results/results_df.csv")    
-
-    #TODO del
     os.makedirs("/home/ubuntu/ray_results", exist_ok=True)
     df.to_csv("/home/ubuntu/ray_results/results_df.csv")
+    with open('/home/ubuntu/ray_results/best_results.txt', 'wt+') as f:
+        f.write(json.dumps(analysis.get_best_config(metric="test_loss", mode="min"), indent=4))
