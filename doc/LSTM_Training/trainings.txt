@@ -1,0 +1,52 @@
+(.venv) ubuntu@jolly:~/dev/papyrus-research$ python source/lstm/run_experiment.py
+Epoch 1/10 Train loss: 11.91
+Epoch 1/10 Test loss: 4.65
+Epoch 2/10 Train loss: 4.29
+Epoch 2/10 Test loss: 4.23
+Epoch 3/10 Train loss: 4.14
+Epoch 3/10 Test loss: 4.14
+Epoch 4/10 Train loss: 4.09
+Epoch 4/10 Test loss: 4.17
+Epoch 5/10 Train loss: 4.06
+Epoch 5/10 Test loss: 4.09
+Epoch 6/10 Train loss: 4.05
+Epoch 6/10 Test loss: 4.05
+Epoch 7/10 Train loss: 4.02
+Epoch 7/10 Test loss: 4.04
+Epoch 8/10 Train loss: 4.00
+Epoch 8/10 Test loss: 4.10
+Epoch 9/10 Train loss: 3.99
+Epoch 9/10 Test loss: 3.99
+Epoch 10/10 Train loss: 4.00
+Epoch 10/10 Test loss: 4.06
+Epoch... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10/10     1:01:19
+Batch... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1992/1992 0:05:28
+Saving model to: ./source/model_store/lstm/lstm_96.96_augmented/saved_model
+Saving figure train_test_losses to ./source/model_store/lstm/lstm_96.96_augmented/train_test_losses.png
+(.venv) ubuntu@jolly:~/dev/papyrus-research$ nano source/lstm/run_experiment.py
+(.venv) ubuntu@jolly:~/dev/papyrus-research$ nano source/lstm/run_experiment.py
+(.venv) ubuntu@jolly:~/dev/papyrus-research$ python source/lstm/run_experiment.py
+Epoch 1/10 Train loss: 13.89
+Epoch 1/10 Test loss: 4.16
+Epoch 2/10 Train loss: 3.53
+Epoch 2/10 Test loss: 3.39
+Epoch 3/10 Train loss: 3.34
+Epoch 3/10 Test loss: 3.34
+Epoch 4/10 Train loss: 3.30
+Epoch 4/10 Test loss: 3.49
+Epoch 5/10 Train loss: 3.28
+Epoch 5/10 Test loss: 3.28
+Epoch 6/10 Train loss: 3.25
+Epoch 6/10 Test loss: 3.30
+Epoch 7/10 Train loss: 3.25
+Epoch 7/10 Test loss: 3.28
+Epoch 8/10 Train loss: 3.23
+Epoch 8/10 Test loss: 3.70
+Epoch 9/10 Train loss: 3.22
+Epoch 9/10 Test loss: 3.21
+Epoch 10/10 Train loss: 3.21
+Epoch 10/10 Test loss: 3.28
+Epoch... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10/10     1:00:17
+Batch... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1992/1992 0:05:25
+Saving model to: ./source/model_store/lstm/lstm_96.96_unaugmented/saved_model
+Saving figure train_test_losses to ./source/model_store/lstm/lstm_96.96_unaugmented/train_test_losses.png

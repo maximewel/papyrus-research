@@ -1,4 +1,4 @@
-version: '3.8'  # You can specify a different version if needed
+version: '3.8'
 
 services:
   training:

@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
@@ -24,12 +25,13 @@ from source.model.blocks.constants.datasets_library import *
 
 import numpy as np
 from enum import Enum
-from ray import tune
-from ray.tune.schedulers import ASHAScheduler
+from ray import tune, train
+from ray.train import Checkpoint
+from ray.tune.schedulers import MedianStoppingRule, ASHAScheduler
 
 #Fixed constants for the structural hyper-parameter search
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-LSTM_MODEL = "lstm_96.96_augmented"
+LSTM_MODEL = "lstm_96.96_unaugmented"
 EMBEDDING_DIMS = 256
 AUTOREGRESS_TARGET_LENGTH= 100
 N_LAYERS = 6
@@ -38,8 +40,10 @@ DROPOUT_RATIO= 0.1
 PATCH_DIM = (16, 16)
 IMAGE_SHAPE = (96, 96)
 W_LOSS = 1
-BATCH_SIZE = 256
-LR = 1e-4
+BATCH_SIZE = 64
+LR = 1e-3
+
+MAX_ITER = 6
 
 #Keys used in configuration dict
 class StructuralParameters(Enum):
@@ -67,7 +71,7 @@ def retrieve_last_values(sequences: PackedSequence) -> Tensor:
 
     return torch.stack(last_values)
 
-def train_loop(config: dict, checkpoint_dir=None):
+def train_loop(config: dict):
     """Loop used to train a model under the given parameters and report results to raytune's engine"""
     losses_weights = LossesWeights(W_LOSS, W_LOSS)
 
@@ -77,8 +81,6 @@ def train_loop(config: dict, checkpoint_dir=None):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         relative_dir = os.path.join(MODEL_FOLDER, LSTM_FOLDER)
         filepath = os.path.join(current_dir, relative_dir, LSTM_MODEL, MODEL_FILENAME)
-        print(f"Loading LSTM model from: {filepath}")
-
         lstm_model: HwLstm = torch.load(filepath)
         #Freeze model as we have a pre-trained LSTM model that doesnt need to learn in this step
         for param in lstm_model.parameters():
@@ -111,60 +113,97 @@ def train_loop(config: dict, checkpoint_dir=None):
     optimizer = Adam(model.parameters(), lr=LR)
     coord_criterion = EuclideanDistanceLoss()
     Skeleton_criterion = SkeletonLoss(normalized_sequences=False, dataset_image_shape=IMAGE_SHAPE, mode=SkeletonLossMode.DIST_LAST_PIX)
+    
+    #If checkpointed, retrieve last values
+    checkpoint = train.get_checkpoint()
+    if checkpoint:
+        with checkpoint.as_directory() as checkpoint_dir:
+            start_epoch = checkpoint["epoch"] + 1
+            checkpoint_path = os.path.join(checkpoint_dir, "checkpoint.pt")
+            checkpoint = torch.load(checkpoint_path)
+            model.load_state_dict(checkpoint["model_state_dict"])
+            optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            start_epoch = checkpoint["epoch"] + 1
+    else:
+        start_epoch = 0
 
-    train_loss = 0.0    
-    for batch in train_loader:
-
-        original_images, images_patches, masks, sequences, labels = data_from_batch(batch, device)
-
-        # Iterate over the sequences untill all are over. 
-        y_pred = model.forward(images_patches, masks, sequences)
-
-        ### COORD loss ###
-        coord_loss = coord_criterion(y_pred, labels) * losses_weights.coord_weight
-
-        ### Skeleton loss ###
-        #Apply skeletton loss only on generated tensors that are not EOS
-        label_eos_mask = ~(labels == Tokens.EOS_TENSOR.value).all(dim=1)
-        last_coordinates = retrieve_last_values(sequences)
-        Skeleton_loss = Skeleton_criterion(last_coordinates[label_eos_mask], y_pred.detach()[label_eos_mask], original_images) * losses_weights.skeleton_weight
-
-        loss = (coord_loss + Skeleton_loss) / losses_weights.total_weights
-
-
-        optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=100.0)
-        optimizer.step()
-        
-        train_loss += loss.detach().cpu().item()
-
-    train_loss /= len(train_loader)
-
-    # Test loop
-    with torch.no_grad():
-        test_loss = 0.0
-        for batch in test_loader:
+    train_losses = []
+    test_losses = []
+    for epoch in range(start_epoch, MAX_ITER):
+        train_loss = 0.0
+        for batch in train_loader:
             original_images, images_patches, masks, sequences, labels = data_from_batch(batch, device)
 
+            # Iterate over the sequences untill all are over. 
             y_pred = model.forward(images_patches, masks, sequences)
 
             ### COORD loss ###
-            coord_loss = coord_criterion(y_pred, labels)
+            coord_loss = coord_criterion(y_pred, labels) * losses_weights.coord_weight
 
             ### Skeleton loss ###
+            #Apply skeletton loss only on generated tensors that are not EOS
+            label_eos_mask = ~(labels == Tokens.EOS_TENSOR.value).all(dim=1)
             last_coordinates = retrieve_last_values(sequences)
-            Skeleton_loss = Skeleton_criterion(last_coordinates, y_pred.detach(), original_images)
+            Skeleton_loss = Skeleton_criterion(last_coordinates[label_eos_mask], y_pred.detach()[label_eos_mask], original_images) * losses_weights.skeleton_weight
 
             loss = (coord_loss + Skeleton_loss) / losses_weights.total_weights
-            test_loss += loss.detach().cpu().item()
-        
-        test_loss /= len(test_loader)
 
-        return {
-            "train_loss": train_loss,
-            "test_loss": test_loss
-        }
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=100.0)
+            optimizer.step()
+            
+            train_loss += loss.detach().cpu().item()
+
+            #TODO DEL test
+            break
+        train_loss /= len(train_loader)
+        train_losses.append(train_loss)
+
+        # Test loop
+        with torch.no_grad():
+            test_loss = 0.0
+            for batch in test_loader:
+                original_images, images_patches, masks, sequences, labels = data_from_batch(batch, device)
+
+                y_pred = model.forward(images_patches, masks, sequences)
+
+                ### COORD loss ###
+                coord_loss = coord_criterion(y_pred, labels) * losses_weights.coord_weight
+
+                ### Skeleton loss ###
+                #Apply skeletton loss only on generated tensors that are not EOS
+                label_eos_mask = ~(labels == Tokens.EOS_TENSOR.value).all(dim=1)
+                last_coordinates = retrieve_last_values(sequences)
+                Skeleton_loss = Skeleton_criterion(last_coordinates[label_eos_mask], y_pred.detach()[label_eos_mask], original_images) * losses_weights.skeleton_weight
+
+                loss = (coord_loss + Skeleton_loss) / losses_weights.total_weights
+                test_loss += loss.detach().cpu().item()
+
+                #TODO DEL test
+                break
+            test_loss /= len(test_loader)
+            test_losses.append(test_loss)
+
+            with tempfile.TemporaryDirectory() as save_checkpoint_dir:
+                checkpoint_path = os.path.join(save_checkpoint_dir, "checkpoint.pt")
+                torch.save({
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                }, checkpoint_path)
+
+                train.report(
+                    {
+                        "train_loss": train_loss,
+                        "test_loss": test_loss,
+                        "training_iteration": epoch + 1,
+                        #Usefull for end reports
+                        "train_losses": train_losses,
+                        "test_losses": test_losses,
+                    },
+                    checkpoint=Checkpoint.from_directory(save_checkpoint_dir)
+                )
 
 def trial_name_creator(trial):
     config: dict = trial.config
@@ -174,10 +213,6 @@ def trial_name_creator(trial):
 
 if __name__ == "__main__":
     # Search space for hyperparameters
-    augmented_datasets = (HandWrittingDataset(BRUSH_96_96_TRAIN_S_AUGMENTED), HandWrittingDataset(BRUSH_96_96_TEST_S_AUGMENTED))
-    unaugmented_datasets = (HandWrittingDataset(BRUSH_96_96_TRAIN_S_UNAUGMENTED), HandWrittingDataset(BRUSH_96_96_TEST_S_UNAUGMENTED))
-    mixed_datasets = (HandWrittingDataset(BRUSH_96_96_TRAIN_S_MIXED), HandWrittingDataset(BRUSH_96_96_TEST_S_MIXED))
-
     augmented_datasets = (BRUSH_96_96_TRAIN_S_AUGMENTED, BRUSH_96_96_TEST_S_AUGMENTED)
     unaugmented_datasets = (BRUSH_96_96_TRAIN_S_UNAUGMENTED, BRUSH_96_96_TEST_S_UNAUGMENTED)
     mixed_datasets = (BRUSH_96_96_TRAIN_S_MIXED, BRUSH_96_96_TEST_S_MIXED)
@@ -189,11 +224,21 @@ if __name__ == "__main__":
         StructuralParameters.IS_POSITION_LEARNABLE.value: tune.choice([True, False])
     }
 
+    # In case of median stopping, but ashas can be favored (less overall runs)
+    # scheduler = MedianStoppingRule(
+    #     time_attr="training_iteration",
+    #     metric="test_loss", 
+    #     mode="min", 
+    #     grace_period=2
+    # )
+
     scheduler = ASHAScheduler(
+        time_attr="training_iteration",
         metric="test_loss", 
         mode="min", 
-        max_t=10,
-        reduction_factor=2
+        max_t=MAX_ITER,
+        grace_period=2,
+        reduction_factor=2,
     )
 
     analysis = tune.run(
@@ -202,8 +247,8 @@ if __name__ == "__main__":
         config=search_space,
         scheduler=scheduler,
         num_samples=24,
-        resources_per_trial = { "gpu": 0.5 },
-        max_concurrent_trials = 2
+        resources_per_trial = { "gpu": 1.0 },
+        max_concurrent_trials = 1
     )
 
     # Print the best hyperparameters
@@ -211,4 +256,8 @@ if __name__ == "__main__":
 
     # Save results
     df = analysis.results_df
-    df.to_csv("ray_tune_results.csv")
+    df.to_csv("~/ray_results/results_df.csv")    
+
+    #TODO del
+    os.makedirs("/home/ubuntu/ray_results", exist_ok=True)
+    df.to_csv("/home/ubuntu/ray_results/results_df.csv")

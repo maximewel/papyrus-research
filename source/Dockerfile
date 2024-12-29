@@ -21,5 +21,4 @@ RUN pip install --upgrade pip && pip install -r requirements_docker.txt
 COPY . /workspace/source
 
 # Default command to run your module (can be overridden in docker-compose.yml)
-RUN pwd
 CMD ["python", "-m", "source.run_experiment"]
