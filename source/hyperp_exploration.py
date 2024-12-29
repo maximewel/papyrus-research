@@ -206,7 +206,7 @@ def trial_name_creator(trial):
     config: dict = trial.config
     augment_mode = config[StructuralParameters.DATASETS.value][0].split('_')[-1]
 
-    return f"augment_mode={augment_mode}_lstm={config[StructuralParameters.USE_LSTM.value]}_pred_tok={config[StructuralParameters.USE_PRED_TOKEN.value]}_learn-pos={config[StructuralParameters.IS_POSITION_LEARNABLE.value]}"
+    return f"augment-mode={augment_mode}_lstm={config[StructuralParameters.USE_LSTM.value]}_pred-tok={config[StructuralParameters.USE_PRED_TOKEN.value]}_learn-pos={config[StructuralParameters.IS_POSITION_LEARNABLE.value]}"
 
 if __name__ == "__main__":
     # Search space for hyperparameters
