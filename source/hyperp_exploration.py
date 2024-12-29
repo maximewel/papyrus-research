@@ -215,10 +215,10 @@ if __name__ == "__main__":
     mixed_datasets = (BRUSH_96_96_TRAIN_S_MIXED, BRUSH_96_96_TEST_S_MIXED)
 
     search_space = {
-        StructuralParameters.DATASETS.value: tune.choice([augmented_datasets, unaugmented_datasets, mixed_datasets]),
-        StructuralParameters.USE_PRED_TOKEN.value: tune.choice([True, False]),
-        StructuralParameters.USE_LSTM.value: tune.choice([True, False]),
-        StructuralParameters.IS_POSITION_LEARNABLE.value: tune.choice([True, False])
+        StructuralParameters.DATASETS.value: tune.grid_search([augmented_datasets, unaugmented_datasets, mixed_datasets]),
+        StructuralParameters.USE_PRED_TOKEN.value: tune.grid_search([True, False]),
+        StructuralParameters.USE_LSTM.value: tune.grid_search([True, False]),
+        StructuralParameters.IS_POSITION_LEARNABLE.value: tune.grid_search([True, False])
     }
 
     scheduler = MedianStoppingRule(
@@ -234,7 +234,7 @@ if __name__ == "__main__":
         trial_name_creator=trial_name_creator,
         config=search_space,
         scheduler=scheduler,
-        num_samples=24,
+        num_samples=1,
         resources_per_trial = { "gpu": 1.0 },
         max_concurrent_trials = 1
     )
