@@ -1,0 +1,5 @@
+{
+    "pred_token": true,
+    "use_lstm": false,
+    "positional_learnable": false
+}

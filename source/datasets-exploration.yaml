@@ -4,8 +4,8 @@ services:
   training:
     build:
       context: .
-      dockerfile: RayTune-Dockerfile
-    container_name: raytune_container
+      dockerfile: Datasets-Dockerfile
+    container_name: dataset-experiment-container
     
     deploy:
       resources:
@@ -18,7 +18,6 @@ services:
     volumes:
       - ../data:/workspace/data
       - ./model_store:/workspace/source/model_store
-      - ./raytune_results:/home/ubuntu/ray_results/
 
     # Optional environment variables
     environment:

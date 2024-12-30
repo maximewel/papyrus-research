@@ -120,7 +120,7 @@ if __name__ == "__main__":
         
         plt.ion()
 
-        nextIndex = 1000
+        nextIndex = 100
         while nextIndex < len(dataset):
             image, patched_image, padding, current_signal, label = dataset[nextIndex]
             nextIndex += 1
