@@ -213,6 +213,7 @@ if __name__ == "__main__":
         time_attr="training_iteration",
         metric="test_loss", 
         mode="min",
+        reduction_factor=2
     )
 
     analysis = tune.run(
