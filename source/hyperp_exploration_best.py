@@ -37,7 +37,7 @@ USE_PRED_TOKEN = True
 USE_LSTM = True
 LSTM_MODEL = "lstm_96.96_unaugmented"
 EMBEDDING_DIMS = 256
-AUTOREGRESS_TARGET_LENGTH= 100
+AUTOREGRESS_TARGET_LENGTH = 50
 DROPOUT_RATIO= 0.1
 PATCH_DIM = (16, 16)
 IMAGE_SHAPE = (96, 96)
@@ -204,7 +204,7 @@ if __name__ == "__main__":
 
     search_space = {
         HyperParameters.LR.value: tune.grid_search([1e-3, 1e-4, 1e-5]),
-        HyperParameters.WEIGHTS.value: tune.grid_search([(0,1), (1,0), (1,2), (2,1), (1,4), (4,1)]),
+        HyperParameters.WEIGHTS.value: tune.grid_search([(0,1), (1,0), (1,1), (1,1), (1,3), (3,1)]),
         HyperParameters.HEADS.value: tune.grid_search([4, 8, 16]),
         HyperParameters.LAYERS.value: tune.grid_search([6, 12, 24]),
     }
@@ -213,7 +213,6 @@ if __name__ == "__main__":
         time_attr="training_iteration",
         metric="test_loss", 
         mode="min",
-        grace_period=2,
     )
 
     analysis = tune.run(
