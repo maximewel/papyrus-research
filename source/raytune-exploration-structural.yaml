@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  training:
+    build:
+      context: .
+      dockerfile: RayTune-Dockerfile-Structural
+    container_name: raytune_container_structural
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    volumes:
+      - ../data:/workspace/data
+      - ./model_store:/workspace/source/model_store
+      - ./raytune_results:/home/ubuntu/ray_results/
+
+    # Optional environment variables
+    environment:
+      PYTHONUNBUFFERED: 1

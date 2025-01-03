@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
     if use_lstm:
         #Load pre-trained LSTM model
-        folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, LSTM_FOLDER, LSTM_MODEL_PATH)
+        folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, LSTM_FOLDER, lstm_model_path)
         filepath = os.path.join(folderPath, MODEL_FILENAME)
         print(f"Loading LSTM model from: {filepath}")
         lstm_model: HwLstm = torch.load(filepath)

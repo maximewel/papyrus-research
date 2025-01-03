@@ -21,7 +21,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 
-folder_model_to_load = "brush_96_10epochs_pred"
+#folder_model_to_load = "brush_96_10epochs_pred"
+folder_model_to_load = "augmented"
 USE_LSTM = False
 folder_lstm_model_to_load = ""
 
