@@ -41,7 +41,7 @@ AUTOREGRESS_TARGET_LENGTH = 50
 DROPOUT_RATIO= 0.1
 PATCH_DIM = (16, 16)
 IMAGE_SHAPE = (96, 96)
-BATCH_SIZE = 512
+BATCH_SIZE = 256
 
 TRAIN_DATASET = HandWrittingDataset(BRUSH_96_96_TRAIN_S_AUGMENTED)
 TEST_DATASET = HandWrittingDataset(BRUSH_96_96_TEST_S_AUGMENTED)
@@ -206,14 +206,14 @@ if __name__ == "__main__":
         HyperParameters.LR.value: tune.grid_search([1e-3, 1e-4, 1e-5]),
         HyperParameters.WEIGHTS.value: tune.grid_search([(0,1), (1,0), (1,1), (1,1), (1,3), (3,1)]),
         HyperParameters.HEADS.value: tune.grid_search([4, 8, 16]),
-        HyperParameters.LAYERS.value: tune.grid_search([6, 12, 24]),
+        HyperParameters.LAYERS.value: tune.grid_search([6, 12]),
     }
 
     scheduler = ASHAScheduler(
         time_attr="training_iteration",
         metric="test_loss", 
         mode="min",
-        reduction_factor=2
+        reduction_factor=3
     )
 
     analysis = tune.run(
