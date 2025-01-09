@@ -44,7 +44,7 @@ class HandWrittingDataset(Dataset):
     GAUSS_MEAN = 0.0
     GAUSS_STD = 1.0
     #DEBUG ONLY
-    DISPLAY_GAUSS_AUGMENT = True
+    DISPLAY_GAUSS_AUGMENT = False
 
     def __init__(self, dataset_folder_name: str, lstm_mode: bool = False):
         super().__init__()
