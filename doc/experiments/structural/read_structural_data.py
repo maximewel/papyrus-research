@@ -28,7 +28,7 @@ def create_plots(first_group, second_group, first_label, second_label):
     avg_train_lstm, avg_test_lstm = calculate_average_losses(first_group)
     avg_train_no_lstm, avg_test_no_lstm = calculate_average_losses(second_group)
     # Create a figure with two axes
-    fig, axes = plt.subplots(2, 1, figsize=(12, 16), sharex=True)
+    fig, axes = plt.subplots(2, 1, sharex=True)
 
     # First axis: Train Losses
     axes[0].set_title(f"Average Train Losses ({first_label} vs {second_label})")
@@ -88,7 +88,7 @@ def create_plots(first_group, second_group, first_label, second_label):
     # Show the combined plot
     plt.show()
 
-def prepare_df() -> pd.DataFrame:
+def prepare_df(path) -> pd.DataFrame:
     df = pd.read_csv(path)
     #Drop single outlier that is a pain for averages and graphes
     df = df[df["train_loss"] <= 100]
@@ -111,7 +111,7 @@ def prepare_df() -> pd.DataFrame:
 if __name__ == "__main__":
     path = os.path.join(os.path.abspath(__file__), '..', "results_df.csv")
 
-    df = prepare_df()
+    df = prepare_df(path)
 
     # Filter rows based on LSTM usage
     lstm_used = df[df["config/use_lstm"] == True]

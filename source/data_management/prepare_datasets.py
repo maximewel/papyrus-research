@@ -90,9 +90,19 @@ def prepare_inference_dataset():
 
     prepare_dataset(signals_sampled, BRUSH_100_100_VALID_M, GaussianAugmentationMode.UNAUGMENTED, only_last=True)
 
+def show_Gauss_noise():
+    brush_datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, image_max_shape=(100,100))
+
+    signals = sorted(brush_datasource.signals, key = lambda a: len(a), reverse=True)[:10]
+
+    HandWrittingDataset.prepare_and_save_training_data(signals, 'temp', PATCHES_DIM, LSTM_MODE, TARGET_IMAGE_SHAPE, NORMALIZE__COORDS, GaussianAugmentationMode.ONLY_AUGMENTED, True)
+
+
 if __name__ == "__main__":
     logger.add_log_channel(LogChannels.DATA)
 
     #prepare_datasets()
 
-    prepare_inference_dataset()
+    #prepare_inference_dataset()
+
+    show_Gauss_noise()

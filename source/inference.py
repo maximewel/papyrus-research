@@ -22,7 +22,7 @@ import numpy as np
 import cv2
 
 #folder_model_to_load = "brush_96_10epochs_pred"
-folder_model_to_load = "augmented"
+folder_model_to_load = "mixed"
 USE_LSTM = False
 folder_lstm_model_to_load = ""
 
@@ -197,6 +197,11 @@ if __name__ == "__main__":
 
                     fig.canvas.draw()  # Redraw the canvas
                     fig.canvas.flush_events()  # Flush any GUI events
+
+                    # In case model spits EOS
+                    if torch.equal(res.squeeze(0), Tokens.EOS_TENSOR.value):
+                        print(f"EOS token detected ! Res is: {res.squeeze(0)}, pred token is: {Tokens.EOS_TENSOR.value}")
+                        stop_signal = True
 
                     # Check if we should stop
                     if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS) or (REPLACE_WITH_GOLDEN and i >= len(current_signal)) or (i > 2 * len(current_signal)):

@@ -23,3 +23,7 @@ BRUSH_96_96_TRAIN_S_MIXED = "brush_96.96_train_s_mixed"
 BRUSH_96_96_TEST_S_MIXED = "brush_96.96_test_s_mixed"
 
 BRUSH_96_96_VALID_S = "brush_96.96_valid_s"
+
+BRUSH_96_96_TRAIN_M_MIXED = "brush_96.96_train_m_mixed"
+BRUSH_96_96_TEST_M_MIXED = "brush_96.96_test_m_mixed"
+BRUSH_96_96_VALID_M = "brush_96.96_valid_m"

@@ -44,7 +44,7 @@ class HandWrittingDataset(Dataset):
     GAUSS_MEAN = 0.0
     GAUSS_STD = 1.0
     #DEBUG ONLY
-    DISPLAY_GAUSS_AUGMENT = False
+    DISPLAY_GAUSS_AUGMENT = True
 
     def __init__(self, dataset_folder_name: str, lstm_mode: bool = False):
         super().__init__()
@@ -66,7 +66,7 @@ class HandWrittingDataset(Dataset):
     #Override
     def __getitem__(self, idx):
         if idx >= len(self):
-            raise Exception(f"Invalid index: Dataset of size {len(self)} has no item at index {idx}")
+            raise IndexError(f"Invalid index: Dataset of size {len(self)} has no item at index {idx}")
         
         #Retrieve subsequence
         subsequence_folder = self.subsequence_path_at_index(self.dataset_folder_name, idx)
@@ -386,12 +386,12 @@ class HandWrittingDataset(Dataset):
 
         # Plot the pre-augmentation image
         axs[0].imshow(img_pre_augment, cmap="gray")
-        axs[0].set_title("Original Skeleton")
+        axs[0].set_title("Original Signal")
         axs[0].axis("off")  # Hide axes for better visual clarity
 
         # Plot the post-augmentation image
         axs[1].imshow(img_post_augment, cmap="gray")
-        axs[1].set_title("Noised Skeleton")
+        axs[1].set_title("Noised Signal")
         axs[1].axis("off")  # Hide axes for better visual clarity
 
         print(f"Original:\n{pre_signal}")
