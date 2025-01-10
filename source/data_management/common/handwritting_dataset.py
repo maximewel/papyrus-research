@@ -16,7 +16,7 @@ from torch import Tensor
 from source.model.blocks.constants.files import *
 import os
 from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 
 from random import shuffle
 from enum import Enum, auto
@@ -152,7 +152,7 @@ class HandWrittingDataset(Dataset):
         Path(cls.datafolder_sequence_path(save_to_folder)).mkdir(parents=True, exist_ok=False)
         Path(cls.datafolder_subsequence_path(save_to_folder)).mkdir(parents=False, exist_ok=False)
 
-        with ProcessPoolExecutor() as executor:
+        with ThreadPoolExecutor() as executor:
             for i in range(0, len(signals), cls.PREPARE_TRAINING_DATA_WINDOW_SIZE):
                 sequences_bundles_to_save = []
                 subsequences_bundles_to_save = []

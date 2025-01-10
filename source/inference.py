@@ -40,6 +40,8 @@ REPLACE_ON_SKELETON_ON_RES = False
 
 IMAGE_MAX_SHAPE = (96, 96)
 
+CONTINUE = True
+
 tolerance = 0.0001
 def has_identical_last_values(tensor, n: int) -> bool:
     """Return whether the last N values of the tensor are exact"""
@@ -121,7 +123,7 @@ if __name__ == "__main__":
         
         plt.ion()
 
-        nextIndex = 100
+        nextIndex = 500
         while nextIndex < len(dataset):
             image, patched_image, padding, current_signal, label = dataset[nextIndex]
             nextIndex += 1
@@ -131,13 +133,16 @@ if __name__ == "__main__":
             padding = torch.tensor(padding, device=device)
 
             #Create image
-            fig, axs = plt.subplots(1, 3, figsize=(10, 10))
+            fig, axs = plt.subplots(1, 3, figsize=(10, 5))
             axs[0].set_title('Original image')
             axs[0].axis('off')
-            axs[1].set_title('Patched image given to transformer, unpatched')
+            axs[1].set_title('Original image Live')
             axs[1].axis('off')
             axs[2].set_title('Predicted sequence from image, reconstructed')
             axs[2].axis('off')
+
+            wm = plt.get_current_fig_manager()
+            wm.window.state('zoomed')            
             plt.show(block=False)
 
             print(f"Selecting random signal n°{nextIndex} of length {len(current_signal)}")
@@ -147,7 +152,6 @@ if __name__ == "__main__":
             orig_image = image_from_result(current_signal, mult_tensor, IMAGE_MAX_SHAPE)
             print(image.shape)
             print(torch.tensor(image).unsqueeze(0).shape)
-            # patched_image_unfolded = unfolder(torch.tensor(image).unsqueeze(0).permute(0,2,1))[0][0].numpy()
 
             axs[0].imshow(orig_image, cmap='gray')
 
@@ -155,6 +159,9 @@ if __name__ == "__main__":
                 #Limit generation to avoid infinite autoregression
                 resultSignal = current_signal[:1]
                 working_signal = current_signal[:1]
+
+                live_orig_image = image_from_result(current_signal[:1], mult_tensor, IMAGE_MAX_SHAPE)
+                live_orig_display = axs[1].imshow(live_orig_image, cmap='gray', vmin=0, vmax=1)
 
                 result_image = image_from_result(resultSignal, mult_tensor, IMAGE_MAX_SHAPE)
                 result_display = axs[2].imshow(result_image, cmap='gray', vmin=0, vmax=1)
@@ -192,6 +199,9 @@ if __name__ == "__main__":
                     else:
                         working_signal = torch.vstack([working_signal, res])
 
+                    live_orig_image = image_from_result(current_signal[:i+1], mult_tensor, IMAGE_MAX_SHAPE)
+                    live_orig_display.set_data(live_orig_image)
+
                     result_image = image_from_result(resultSignal, mult_tensor, IMAGE_MAX_SHAPE)
                     result_display.set_data(result_image)
 
@@ -211,8 +221,12 @@ if __name__ == "__main__":
                     i += 1
 
             print(f"Got final signal of length {resultSignal.shape[0]}")
-            entry = input("Press to next, enter anything stop:")
             plt.close(fig)
+
+            if CONTINUE:
+                entry = False
+            else:
+                entry = input("Press to next, enter anything stop:")
 
             if(entry):
                 plt.ioff()
