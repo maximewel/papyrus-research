@@ -190,7 +190,13 @@ class HandWrittingDataset(Dataset):
                 logger.log(LogChannels.DATA, f"Adding {len(sequences_bundles_to_save)} sequences, {len(subsequences_bundles_to_save)} subsequences to saving pool")
 
                 list(executor.map(cls.save_sequence_bundle, sequences_bundles_to_save))
-                list(executor.map(cls.save_subsequence_bundle, subsequences_bundles_to_save))
+                print(f"Finished first")
+                for j in range(0, len(subsequences_bundles_to_save), cls.PREPARE_TRAINING_DATA_WINDOW_SIZE):
+                    upper_bound_sub_sub = min(j+cls.PREPARE_TRAINING_DATA_WINDOW_SIZE, len(subsequences_bundles_to_save)-1)
+                    sub_subsequences_bundles_to_save = subsequences_bundles_to_save[i:upper_bound_sub_sub]
+                    list(executor.map(cls.save_subsequence_bundle, sub_subsequences_bundles_to_save))
+                    print(f"Finished sub-signal exec {j}/{len(subsequences_bundles_to_save)}")
+                print(f"Finished second")
 
         logger.log(LogChannels.DATA, f"Saved {sequence_index} sequences and {subsequence_index} subsequences to {save_to_folder}")
 
@@ -200,12 +206,11 @@ class HandWrittingDataset(Dataset):
         Save a single datapoint to disk
         """
         filepath, (sequence, image, patchified_image, patchified_masks) = filepath_and_bundle
-        with open(filepath, 'wb') as f:
-            np.savez_compressed(f, 
-                                sequence=sequence,
-                                image=image,
-                                patchified_image=patchified_image,
-                                patchified_masks=patchified_masks)
+        np.savez_compressed(filepath, 
+            sequence=sequence,
+            image=image,
+            patchified_image=patchified_image,
+            patchified_masks=patchified_masks)
         
     @classmethod
     def save_subsequence_bundle(cls, filepath_and_bundle: tuple[str, list]):
@@ -213,11 +218,10 @@ class HandWrittingDataset(Dataset):
         Save a single datapoint to disk
         """
         filepath, [image_id, subsequence, label] = filepath_and_bundle
-        with open(filepath, 'wb') as f:
-            np.savez_compressed(f,
-                                image_id=image_id,
-                                subsequence=subsequence,
-                                label=label)
+        np.savez_compressed(filepath,
+                            image_id=image_id,
+                            subsequence=subsequence,
+                            label=label)
 
     @classmethod
     def datafolder_path(cls, save_folder: str):
