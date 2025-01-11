@@ -182,22 +182,17 @@ class HandWrittingDataset(Dataset):
                         #Add reference to the sequence so that each subsequence has a direct link to its sequence
                         subsequence_bundle = [np.array(sequence_index), current_signal_subsequence.numpy(), current_signal_label.numpy()]
                         subsequences_bundles_to_save.append((subsequence_datafolder, subsequence_bundle))
-
                         subsequence_index += 1
-                    
                     sequence_index += 1
 
                 # Save datapoints using multiprocessing (runs in background)
                 logger.log(LogChannels.DATA, f"Adding {len(sequences_bundles_to_save)} sequences, {len(subsequences_bundles_to_save)} subsequences to saving pool")
 
                 list(executor.map(cls.save_sequence_bundle, sequences_bundles_to_save))
-                print(f"Finished first")
-                for j in range(0, len(subsequences_bundles_to_save), cls.PREPARE_TRAINING_DATA_WINDOW_SIZE):
-                    upper_bound_sub_sub = min(j+cls.PREPARE_TRAINING_DATA_WINDOW_SIZE, len(subsequences_bundles_to_save)-1)
-                    sub_subsequences_bundles_to_save = subsequences_bundles_to_save[i:upper_bound_sub_sub]
-                    list(executor.map(cls.save_subsequence_bundle, sub_subsequences_bundles_to_save))
-                    print(f"Finished sub-signal exec {j}/{len(subsequences_bundles_to_save)}")
-                print(f"Finished second")
+                list(executor.map(cls.save_subsequence_bundle, subsequences_bundles_to_save))
+
+                del sequences_bundles_to_save
+                del subsequences_bundles_to_save
 
         logger.log(LogChannels.DATA, f"Saved {sequence_index} sequences and {subsequence_index} subsequences to {save_to_folder}")
 
