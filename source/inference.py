@@ -22,7 +22,7 @@ import numpy as np
 import cv2
 
 #folder_model_to_load = "brush_96_10epochs_pred"
-folder_model_to_load = "mixed"
+folder_model_to_load = "best_30_epochs"
 USE_LSTM = False
 folder_lstm_model_to_load = ""
 
@@ -123,7 +123,7 @@ if __name__ == "__main__":
         
         plt.ion()
 
-        nextIndex = 500
+        nextIndex = 20
         while nextIndex < len(dataset):
             image, patched_image, padding, current_signal, label = dataset[nextIndex]
             nextIndex += 1

@@ -21,7 +21,7 @@ from tkinter import *
 from PIL import Image, ImageTk
 from time import sleep
 
-MODEL_NAME = "unaugmented"
+MODEL_NAME = "best_30_epochs"
 PATCHES_DIM = (16, 16)
 target_image_shape = (96, 96)
 

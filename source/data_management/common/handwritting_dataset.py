@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
+
 from random import shuffle
 from enum import Enum, auto
 

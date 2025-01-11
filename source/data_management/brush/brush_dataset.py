@@ -25,11 +25,12 @@ class BrushDataset(StrokeHandwrittingDataset):
     restrict_id: int | None
 
     def __init__(self, brush_root, separate_strokes: bool = True, save_to_file: bool = True, 
-                 image_max_shape: tuple[int, int] = None, window_size: int = None, restrict_id: int|None = None):
+                 image_max_shape: tuple[int, int] = None, window_size: int = None, restrict_id: int|None = None, single_signal: bool = False):
         self.brush_root = brush_root
         self.save_to_file = save_to_file
 
         self.restrict_id = restrict_id
+        self.single_signal = single_signal
 
         super().__init__(brush_root, separate_strokes, image_max_shape, window_size, save_to_file)
 

@@ -15,7 +15,6 @@ from source.model.blocks.constants.files import *
 from source.logging.log import logger, LogChannels
 
 
-
 logger.add_log_channel(LogChannels.DATA)
 dataset = BrushDataset(brush_root=BRUSH_ROOT, patches_dim=(1,1),
                         strokemode=True, window_size=0,
