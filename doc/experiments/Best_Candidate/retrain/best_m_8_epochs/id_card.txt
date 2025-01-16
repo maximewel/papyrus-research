@@ -1,0 +1,31 @@
+{
+    "training": {
+        "dataset": [
+            "brush_96.96_train_m_mixed",
+            "brush_96.96_test_m_mixed"
+        ],
+        "lr": 0.0001,
+        "epochs": 8,
+        "batch_size": 512,
+        "dropout_ratio": 0.1
+    },
+    "structural": {
+        "use_prediction_token": true,
+        "use_lstm": false,
+        "lstm_model_path": "",
+        "autoregressive_target_length": 100
+    },
+    "encoder_decorer": {
+        "encoder_heads": 8,
+        "decoder_heads": 8,
+        "encoder_layers": 6,
+        "decoder_layers": 6
+    },
+    "dimensions": {
+        "patches_dim": [
+            16,
+            16
+        ],
+        "embedding_dimension": 256
+    }
+}

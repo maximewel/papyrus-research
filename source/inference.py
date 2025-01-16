@@ -22,9 +22,7 @@ import numpy as np
 import cv2
 
 #folder_model_to_load = "brush_96_10epochs_pred"
-folder_model_to_load = "best_30_epochs"
-USE_LSTM = False
-folder_lstm_model_to_load = ""
+folder_model_to_load = "best_m_8_epochs"
 
 PATCHES_DIM = (16, 16)
 
@@ -38,6 +36,9 @@ REPLACE_WITH_GOLDEN = False
 REPLACE_ON_SKELETON = False
 REPLACE_ON_SKELETON_ON_RES = False
 
+SHOW_WEIGHTS = False
+SHOW_WEIGHTS_SIG = 10
+
 IMAGE_MAX_SHAPE = (96, 96)
 
 CONTINUE = True
@@ -50,6 +51,61 @@ def has_identical_last_values(tensor, n: int) -> bool:
     last_rows = tensor[-n:, :]
     are_identical = torch.all(torch.abs(last_rows - last_rows[0, :]) < tolerance, dim=1).all()    
     return are_identical.item()
+
+## Misc used for report
+def plot_patch_attention_multiple_layers(patchified_images, attention_weights_list, title="Patch Attention Map Across Layers"):
+    """
+    Visualize the attention map for patches across multiple layers.
+    
+    Args:
+        patchified_images: Tensor of shape [n_patches, patch_size^2]
+            Patches from which the image is reconstructed.
+        attention_weights_list: List of tensors, each of shape [n_heads, n_patches, n_patches]
+            Attention weights for each layer.
+        title: Title for the plot.
+    """
+    import matplotlib.pyplot as plt
+    
+    # Reconstruct the image from patchified images
+    patch_size = int(patchified_images.shape[1] ** 0.5)  # Assume patches are square
+    n_patches_side = int(len(patchified_images) ** 0.5)  # n_patches_side x n_patches_side patches
+    reconstructed_image = patchified_images.view(n_patches_side, n_patches_side, patch_size, patch_size)
+    reconstructed_image = reconstructed_image.permute(0, 2, 1, 3).contiguous()  # Reorder for full image
+    reconstructed_image = reconstructed_image.view(
+        n_patches_side * patch_size, n_patches_side * patch_size
+    )  # Combine patches into full image
+
+    # Determine the number of layers and create subplots
+    n_layers = len(attention_weights_list)
+    fig, axes = plt.subplots(1, n_layers + 1, figsize=(16, 6))
+
+    # Plot attention maps for each layer
+    for layer_idx, attention_weights in enumerate(attention_weights_list):
+        print(f"Attention weights: {attention_weights.shape}")
+
+        # Average attention weights across heads and reshape to 6x6
+        print(f"Mean: {attention_weights[0].mean(dim=0).shape}")
+        attention_weights = attention_weights[0].mean(dim=0).view(6, 6)
+        
+        # Plot attention map
+        ax = axes[layer_idx]
+        im = ax.imshow(attention_weights.cpu().detach().numpy(), cmap="viridis")
+        ax.set_title(f"Layer {layer_idx + 1}")
+        ax.set_xlabel("Key Patches")
+        ax.set_ylabel("Query Patches")
+        fig.colorbar(im, ax=ax, label="Attention Weight")
+
+    # Plot reconstructed image
+    ax = axes[-1]
+    ax.imshow(reconstructed_image.cpu().detach().numpy(), cmap="gray")
+    ax.set_title("Reconstructed Image")
+    ax.axis("off")  # Hide axis for the image
+
+    # Set overall title
+    fig.suptitle(title, fontsize=16)
+    plt.tight_layout()
+    plt.show(block=False)
+    input("Press to continue")
 
 def closest_point_on_skeletton(image_skeleton: np.ndarray, point: torch.Tensor) -> torch.Tensor:
     """Return the closest point on skeletton"""
@@ -91,6 +147,11 @@ def image_from_result(resultSignal, mult_tensor, target_size):
     result_image = ImageHelper.create_image(resultSignalAsInt.cpu().numpy(), target_size)
     return result_image
 
+def ink(signal):
+    diff = signal[1:] - signal[:-1]
+    distances = torch.sqrt(torch.sum(diff**2, dim=1))
+    return distances.sum()
+
 if __name__ == "__main__":
         folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, TRANSFORMER_FOLDER, folder_model_to_load)
         filepath = os.path.join(folderPath, MODEL_FILENAME)
@@ -99,17 +160,6 @@ if __name__ == "__main__":
         
         model: HwTransformer = torch.load(filepath)
         model.eval()
-
-        if USE_LSTM:
-            #Load pre-trained LSTM model
-            folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, LSTM_FOLDER, folder_lstm_model_to_load)
-            filepath = os.path.join(folderPath, MODEL_FILENAME)
-            print(f"Loading LSTM model from: {filepath}")
-            lstm_model: HwLstm = torch.load(filepath)
-            #Freeze model as we have a pre-trained LSTM model that doesnt need to learn in this step
-            lstm_model.eval()
-        else:
-            lstm_model = None
 
         # Init data
         from source.logging.log import logger, LogChannels
@@ -123,7 +173,7 @@ if __name__ == "__main__":
         
         plt.ion()
 
-        nextIndex = 20
+        nextIndex = 50
         while nextIndex < len(dataset):
             image, patched_image, padding, current_signal, label = dataset[nextIndex]
             nextIndex += 1
@@ -169,6 +219,7 @@ if __name__ == "__main__":
                 stop_signal = False
 
                 i = 1
+                total_signal_ink = ink(current_signal)
                 while not stop_signal:
                     print(f"\rGenerating point {i}")
 
@@ -176,7 +227,12 @@ if __name__ == "__main__":
                     print(f"Last 5 result:\n{resultSignal[-5:]}")
                     print(f"Last 5 working:\n{working_signal[-5:]}")
 
-                    res = model.forward(patched_image.unsqueeze(0), padding.unsqueeze(0), pack_sequence(working_signal.unsqueeze(0)))
+                    if SHOW_WEIGHTS:
+                        res, weights = model.forward(patched_image.unsqueeze(0), padding.unsqueeze(0), pack_sequence(working_signal.unsqueeze(0)), return_encoder_weights=True)
+                        if i % SHOW_WEIGHTS_SIG == 0:
+                            plot_patch_attention_multiple_layers(patched_image, weights)
+                    else:
+                        res = model.forward(patched_image.unsqueeze(0), padding.unsqueeze(0), pack_sequence(working_signal.unsqueeze(0)))
                     if not DENORMALIZE_SEQUENCES:
                         res = torch.round(res)
                         
@@ -216,6 +272,11 @@ if __name__ == "__main__":
                     # Check if we should stop
                     if has_identical_last_values(resultSignal, STOP_CONDITION_IDENTICAL_OUTPUTS) or (REPLACE_WITH_GOLDEN and i >= len(current_signal)) or (i > 2 * len(current_signal)):
                         print(f"Early stop - identical values loop detected in the last {STOP_CONDITION_IDENTICAL_OUTPUTS} outputs")
+                        stop_signal = True
+                    
+                    #ink: Trick to early stop
+                    if ink(working_signal) > total_signal_ink:
+                        print(f"Stop With INK")
                         stop_signal = True
 
                     i += 1

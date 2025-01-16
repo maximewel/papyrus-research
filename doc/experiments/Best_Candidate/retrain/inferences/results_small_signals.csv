@@ -1,0 +1,5 @@
+,Augmentation,Match_siglen,diffA,diffB,diffC,DTW_value,dist_value
+0,best_30_epochs,True,0.3709299999999999,0.43628000000000006,0.39131,151.438,200.599
+1,best_30_epochs_lstm,True,0.35622000000000004,0.43763,0.38082,151.314,201.983
+2,best_30_epochs,False,0.40703,0.39523,0.39186,256.122,180.313
+3,best_30_epochs_lstm,False,0.3868,0.38175,0.3726,236.269,186.384

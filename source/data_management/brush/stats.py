@@ -88,8 +88,8 @@ def before_after():
 for logchannel in LogChannels:
     logger.add_log_channel(logchannel)
 
-# brush_dataset_orig = BrushDataset(brush_root=BRUSH_ROOT, save_to_file=False, separate_strokes=False, image_max_shape=(1000, 1000))
-# brush_dataset_strokes = BrushDataset(brush_root=BRUSH_ROOT, save_to_file=False, separate_strokes=True, image_max_shape=(1000, 1000))
+brush_dataset_orig = BrushDataset(brush_root=BRUSH_ROOT, save_to_file=False, separate_strokes=False, image_max_shape=(1000, 1000))
+brush_dataset_strokes = BrushDataset(brush_root=BRUSH_ROOT, save_to_file=False, separate_strokes=True, image_max_shape=(1000, 1000))
 # brush_dataset_limited_strokes = BrushDataset(brush_root=BRUSH_ROOT, save_to_file=False, separate_strokes=True, 
 #                                              image_max_shape=(96, 96), restrict_id=1, single_signal=True)
 
@@ -97,12 +97,12 @@ for logchannel in LogChannels:
 # get_stats(brush_dataset_strokes, "Strokes", bin_size=5)
 # get_stats(brush_dataset_limited_strokes, "Restricted strokes", bin_size=5)
 
-# # fig, ax = plt.subplots()
-# #plot_hist_on(brush_dataset_orig, "Signals", bin_size=5, ax=ax)
-# # plot_hist_on(brush_dataset_strokes, "Strokes", bin_size=5, ax=ax)
+fig, ax = plt.subplots()
+plot_hist_on(brush_dataset_orig, "Signals", bin_size=5, ax=ax)
+plot_hist_on(brush_dataset_strokes, "Strokes", bin_size=5, ax=ax)
 # # plot_hist_on(brush_dataset_limited_strokes, "Restricted strokes", bin_size=5, ax=ax)
 
-# plt.show()
+plt.show()
 
 # # before_after()
 

@@ -20,8 +20,10 @@
 \usepackage{xcolor}
 \usepackage{textcomp}
 \usepackage{listings}
+\usepackage{wrapfig,lipsum}
 \usepackage[normalem]{ulem} %emphasize still italic
 \usepackage{ucs}
+\usepackage{tcolorbox}
 
 % \usepackage[utf8]{inputenc}
 % \usepackage[htt]{hyphenat}
@@ -193,14 +195,12 @@
 % ===========================================================================
 
 
-\newcommand{\thesistitle}{Title of the Thesis}
-\newcommand{\thesisauthor}{Given Name \& Surname}
-\newcommand{\thesisleiter}{Name of the Supervisor}
-\newcommand{\thesisasst}{Name of the Assistant}
-\newcommand{\thesissubtitle}{Thesis subtitle}
-\newcommand{\thesisdate}{Month and Year}
-
-
+\newcommand{\thesistitle}{Handwriting: Reconstruction of online signal from offline image}
+\newcommand{\thesisauthor}{Welcklen Geminiani Maxime}
+\newcommand{\thesisleiter}{Professor Andreas Fischer}
+\newcommand{\thesisasst}{Ray}
+\newcommand{\thesissubtitle}{Can the pen kinematic be robustly inferred by a transformer architecture ?}
+\newcommand{\thesisdate}{January 2024}
 
 % ===========================================================================
 
@@ -208,7 +208,8 @@
 			citecolor=black, bookmarksnumbered=true, bookmarks=true,
 			plainpages=false,
 			pdftitle={\thesistitle}, pdfauthor={\thesisauthor},
-			pdfsubject={\thesissubtitle}, pdfpagelabels]{hyperref}
+			pdfsubject={\thesissubtitle}, pdfpagelabels,]{hyperref}
+
 
 \newcommand{\hrref}[2]{\hyperref}
 % ===========================================================================
@@ -242,7 +243,7 @@
     {\Large \thesisauthor}
     
     \vspace{0.3in}
-    {\Large Home University \par}
+    {\Large University of Neuchâtel \par}
 %    {\Large Philosophisch-naturwissenschaftlichen Fakult\"{a}t \\
 %            der Universit\"{a}t Bern \par}
     \vfill

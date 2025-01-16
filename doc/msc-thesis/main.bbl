@@ -1,0 +1,95 @@
+\begin{thebibliography}{10}
+
+\bibitem{IAM_UNIPEN_1999}
+{Consortium}.
+\newblock Unipen data set of on-line (vectorial) handwriting - train\_r01\_v07
+  (december 1999), 1999.
+
+\bibitem{DBLP:journals/corr/abs-2010-11929}
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn,
+  Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg
+  Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby.
+\newblock An image is worth 16x16 words: Transformers for image recognition at
+  scale.
+\newblock {\em CoRR}, abs/2010.11929, 2020.
+
+\bibitem{kotani2020generating}
+Atsunobu Kotani, Stefanie Tellex, and James Tompkin.
+\newblock Generating handwriting via decoupled style descriptors.
+\newblock In {\em European Conference on Computer Vision}, pages 764--780.
+  Springer, 2020.
+
+\bibitem{liu2021swintransformerhierarchicalvision}
+Ze~Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and
+  Baining Guo.
+\newblock Swin transformer: Hierarchical vision transformer using shifted
+  windows, 2021.
+
+\bibitem{791885}
+U.-V. Marti and H.~Bunke.
+\newblock A full english sentence database for off-line handwriting
+  recognition.
+\newblock In {\em Proceedings of the Fifth International Conference on Document
+  Analysis and Recognition. ICDAR '99 (Cat. No.PR00318)}, pages 705--708, 1999.
+
+\bibitem{mohamedmoussa:tel-04583082}
+Elmokhtar Mohamed~Moussa.
+\newblock {\em {Conversion d'{\'e}criture hors-ligne en {\'e}criture en-ligne
+  et r{\'e}seaux de neurones profonds}}.
+\newblock Theses, {Nantes Universit{\'e}}, January 2024.
+
+\bibitem{10.1007/978-3-031-41676-7_5}
+Elmokhtar Mohamed~Moussa, Thibault Lelore, and Harold Mouch{\`e}re.
+\newblock Set, sort! a novel sub-stroke level transformers for offline
+  handwriting to online conversion.
+\newblock In Gernot~A. Fink, Rajiv Jain, Koichi Kise, and Richard Zanibbi,
+  editors, {\em Document Analysis and Recognition - ICDAR 2023}, pages 81--97,
+  Cham, 2023. Springer Nature Switzerland.
+
+\bibitem{Mouchere2016CROHME}
+Harold Mouchère, Richard Zanibbi, Utpal Garain, and Christian Viard-Gaudin.
+\newblock Advancing the state of the art for handwritten math recognition: the
+  crohme competitions, 2011–2014.
+\newblock {\em International Journal on Document Analysis and Recognition
+  (IJDAR)}, 19(3):173--189, 2016.
+
+\bibitem{Egrapas}
+University of~Basel Department~of Ancient~Civilizations.
+\newblock Egrapsa portal, 2024.
+
+\bibitem{8893041}
+Catherine Taleb, Maha Khachab, Chafic Mokbel, and Laurence Likforman-Sulem.
+\newblock Visual representation of online handwriting time series for deep
+  learning parkinson's disease detection.
+\newblock In {\em 2019 International Conference on Document Analysis and
+  Recognition Workshops (ICDARW)}, volume~6, pages 25--30, 2019.
+
+\bibitem{tang2023swinlstmimprovingspatiotemporalpredictionaccuracy}
+Song Tang, Chuang Li, Pu~Zhang, and RongNian Tang.
+\newblock Swinlstm:improving spatiotemporal prediction accuracy using swin
+  transformer and lstm, 2023.
+
+\bibitem{DBLP:journals/corr/abs-2012-12877}
+Hugo Touvron, Matthieu Cord, Matthijs Douze, Francisco Massa, Alexandre
+  Sablayrolles, and Herv{\'{e}} J{\'{e}}gou.
+\newblock Training data-efficient image transformers {\&} distillation through
+  attention.
+\newblock {\em CoRR}, abs/2012.12877, 2020.
+
+\bibitem{DBLP:journals/corr/VaswaniSPUJGKP17}
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones,
+  Aidan~N. Gomez, Lukasz Kaiser, and Illia Polosukhin.
+\newblock Attention is all you need.
+\newblock {\em CoRR}, abs/1706.03762, 2017.
+
+\bibitem{StackOverflowResampling}
+User: {Warren Weckesser}.
+\newblock Resampling a signal with scipy.signal.resample, 2018.
+\newblock Accessed: 2025-01-10.
+
+\bibitem{xiong2020layernormalizationtransformerarchitecture}
+Ruibin Xiong, Yunchang Yang, Di~He, Kai Zheng, Shuxin Zheng, Chen Xing,
+  Huishuai Zhang, Yanyan Lan, Liwei Wang, and Tie-Yan Liu.
+\newblock On layer normalization in the transformer architecture, 2020.
+
+\end{thebibliography}

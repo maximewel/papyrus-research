@@ -1,0 +1,8 @@
+
+Epoch 8/8 Train loss: 4.31
+Epoch 8/8 Test loss: 3.65
+Epoch... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8/8       1 day, 12:47:49
+Batch...                                             0/7970 0:00:00
+Saving model to: ./source/model_store/Tranformers/2025-01-14 22-29-54/saved_model
+Saving figure image train_test_losses to ./source/model_store/Tranformers/2025-01-14 22-29-54/train_test_losses.png
+Saving figure image detailed_train_test_losses to ./source/model_store/Tranformers/2025-01-14 22-29-54/detailed_train_test_losses.png

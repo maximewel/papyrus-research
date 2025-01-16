@@ -121,11 +121,11 @@ def process_signals_from_predictions(signals_to_compare: list[tuple[torch.Tensor
         diff_orig_pred = cv2.subtract(original_image, predicted_image)
         diff_pred_orig = cv2.subtract(predicted_image, original_image)
 
-        diff_union = cv2.add(diff_orig_pred, diff_pred_orig)
+        diff_union_img = cv2.add(diff_orig_pred, diff_pred_orig)
         
-        diff_orig = numpy.round(diff_orig_pred.sum() / original_image.sum(), 2)
-        diff_pred = numpy.round(diff_pred_orig.sum() / predicted_image.sum(), 2)
-        diff_union = numpy.round(diff_union.sum() / cv2.add(original_image,predicted_image).sum(), 2)
+        diff_orig = 1 - numpy.round(diff_orig_pred.sum() / original_image.sum(), 2)
+        diff_pred = 1 - numpy.round(diff_pred_orig.sum() / predicted_image.sum(), 2)
+        diff_union = 1 - numpy.round(diff_union_img.sum() / cv2.add(original_image,predicted_image).sum(), 2)
 
         diffes_orig.append(diff_orig)
         diffes_pred.append(diff_pred)
@@ -164,15 +164,15 @@ def process_signals_from_predictions(signals_to_compare: list[tuple[torch.Tensor
             axes[1].axis("off")
 
             axes[2].imshow(diff_orig_pred, cmap="gray")
-            axes[2].set_title("Difference")
+            axes[2].set_title("Difference from Original")
             axes[2].axis("off")
 
             axes[3].imshow(diff_pred_orig, cmap="gray")
-            axes[3].set_title("Difference (Grayscale)")
+            axes[3].set_title("Difference from Prediction")
             axes[3].axis("off")
 
-            axes[4].imshow(diff_union, cmap="gray")
-            axes[4].set_title("Difference")
+            axes[4].imshow(diff_union_img, cmap="gray")
+            axes[4].set_title("Union of Differences")
             axes[4].axis("off")
 
             # Display the plot

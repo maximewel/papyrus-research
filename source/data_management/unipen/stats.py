@@ -1,5 +1,5 @@
 """
-This module is used to display stats about the BRUSH dataset
+This module is used to display stats about the UNIPEN dataset
 """
 import os
 import sys
@@ -31,7 +31,7 @@ def get_stats(dataset, stroke):
     #Display histogram of sequences
     plt.figure()
     plt.hist(sequences_len, bins=range(0, np.max(sequences_len), 50))
-    plt.title(f"Histogram of the sequences length of the BRUSH dataset with {stroke}")
+    plt.title(f"Histogram of the sequences length of the UNIPEN dataset with {stroke}")
     plt.xlabel("Sequences lenghts in points")
     plt.ylabel("Amount of sequences")
 

@@ -59,7 +59,7 @@ def get_stats(dataset: UnipenDataset, stroke, bin_size: int):
     bins_range = range(0, np.max(sequences_len) + bin_size, bin_size)
     print(f"Max len: {np.max(sequences_len)}")
     plt.hist(sequences_len, bins=bins_range, color='orange')
-    plt.title(f"Histogram of the sequences length of the BRUSH dataset, level of {stroke}")
+    plt.title(f"Histogram of the sequences length of the UNIPEN dataset, level of {stroke}")
     plt.xlabel("Sequences lenghts in points")
     plt.ylabel("Amount of sequences")
 
@@ -90,7 +90,7 @@ for logchannel in LogChannels:
 
 unipen_dataset_orig = UnipenDataset(unipen_root=UNIPEN_ROOT, save_to_file=False, separate_strokes=False, image_max_shape=(10000, 10000))
 # unipen_dataset_strokes = UnipenDataset(unipen_root=UNIPEN_ROOT, save_to_file=False, separate_strokes=True, image_max_shape=(10000, 10000))
-# unipen_dataset_limited_strokes = UnipenDataset(unipen_root=UNIPEN_ROOT, save_to_file=False, separate_strokes=True, image_max_shape=(96, 96))
+#unipen_dataset_limited_strokes = UnipenDataset(unipen_root=UNIPEN_ROOT, save_to_file=False, separate_strokes=True, image_max_shape=(96, 96))
 
 get_stats(unipen_dataset_orig, "Signals", bin_size=50)
 plt.show()
@@ -103,10 +103,11 @@ plt.close()
 # plt.close()
 
 # fig, ax = plt.subplots()
-# plot_hist_on(unipen_dataset_orig, "Signals", bin_size=5, ax=ax)
-# plot_hist_on(unipen_dataset_strokes, "Strokes", bin_size=5, ax=ax)
+# plot_hist_on(unipen_dataset_orig, "Signals", bin_size=20, ax=ax)
+# plot_hist_on(unipen_dataset_strokes, "Strokes", bin_size=20, ax=ax)
 # plot_hist_on(unipen_dataset_limited_strokes, "Restricted strokes", bin_size=5, ax=ax)
 
-# before_after()
+#before_after()
 
+plt.show()
 

@@ -21,7 +21,7 @@ from tkinter import *
 from PIL import Image, ImageTk
 from time import sleep
 
-MODEL_NAME = "best_30_epochs"
+MODEL_NAME = "best_m_8_epochs"
 PATCHES_DIM = (16, 16)
 target_image_shape = (96, 96)
 
@@ -31,7 +31,7 @@ sample_rate = 100
 
 class DrawingApp:
 
-    MULT_EFFECT = 1
+    MULT_EFFECT = 4
     CANVAS_BASE_SIZE = 96
 
     model: HwTransformer

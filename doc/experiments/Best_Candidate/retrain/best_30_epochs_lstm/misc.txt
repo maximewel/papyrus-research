@@ -1,0 +1,9 @@
+13/01/2025 08:48:57 - DOCKER_TRACE: Epoch 30/30 - Batch 1992/1992 - Loss=5.169305801391602
+
+Epoch 30/30 Train loss: 4.32
+Epoch 30/30 Test loss: 3.68
+Epoch... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 30/30     1 day, 10:54:04
+Batch...                                             0/1992 0:00:00
+Saving model to: ./source/model_store/Tranformers/2025-01-13 09-00-49/saved_model
+Saving figure image train_test_losses to ./source/model_store/Tranformers/2025-01-13 09-00-49/train_test_losses.png
+Saving figure image detailed_train_test_losses to ./source/model_store/Tranformers/2025-01-13 09-00-49/detailed_train_test_losses.png
