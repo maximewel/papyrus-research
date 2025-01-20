@@ -7,12 +7,9 @@
 % A B S T R A C T
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 \chapter*{\centering Abstract}
-\begin{tcolorbox}[colframe=black, colback=white, boxrule=1pt, arc=4mm, title=Abstract]
+\begin{tcolorbox}[colframe=black, colback=white, boxrule=1pt, arc=4mm]
 \noindent
-This thesis explores the reconstruction of online handwriting signals (e.g., pen trajectories) 
-from offline images using transformer-based architectures.\par 
-The study addresses the challenge of modeling handwriting kinematics, focusing on trajectories and velocity, 
-through a transformer architecture.\par 
+This thesis explores the reconstruction of online handwriting signals (e.g., pen trajectories) from offline images using transformer-based architectures. The study addresses the challenge of modeling handwriting kinematics, focusing on trajectories and velocity, through a transformer architecture.\par 
 The BRUSH and UNIPEN datasets, representing diverse handwriting styles, 
 were pre-processed to generate paired offline images and online signals.\par
 The model leverages vision transformers for feature extraction and tests the incorporation of LSTMs to guide trajectory predictions.\par
@@ -21,8 +18,8 @@ a novel combination of transformers and LSTMs, and the introduction of metrics t
 Results demonstrate the efficacy of the model in generating lifelike handwriting trajectories, 
 achieving very good accuracy in coordinate prediction specifically for small signals, 
 and high structural similarity between generated and target signals.\par
-Future directions include extending this approach to historical documents, improving noise robustness, changing absolute coordinates to 
-relative speed vectors, and refining datasets for broader handwriting styles.
+Future directions include extending this approach to historical documents by exploring knowledge transfer to other handwriting styles and fine-tuning capabilities, changing absolute coordinates to 
+relative speed vectors, and refining datasets for broader utilization of data.
 \end{tcolorbox}
 
 % Supervisors
@@ -32,7 +29,8 @@ relative speed vectors, and refining datasets for broader handwriting styles.
 Prof. Rolf Ingold, Emeritus Professor, Department of Informatics, University of Fribourg\\
 Dr. Andreas Fischer, Lecturer and Professor, Department of Informatics, University of Fribourg\\
 
-\textit{With the assistance of Ray, PHD candidate, Department of Informatics, University of Fribourg}
+\textit{With the assistance of Ray, Assistant \& PHD candidate, Faculty of Philosophy and History
+Department, University of Basel}
 
 % C O N T E N T S 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
@@ -71,12 +69,12 @@ When analyzing an element of handwriting, two signals are distinguished: on one 
 
 The present work is done as a collaboration with the university of Basel as part of the EGRAPSA project \cite{Egrapas}. The Department of Ancient Civilizations has a collection of original Greek papyrus, such as the Iliad (figure \ref{fig:egrapsa_illiad}), and coordinates its study. Computer vision has recently been the driving force of major breakthrough in the field of papyrus deciphering (Figure \ref{fig:decyphered_vesuvius_papyrus}), and we believe a study of the modeling of the handwriting of this collection can yield interesting archaeological value. For example, a good handwriting characterization could help in document dating, while individual handwriting descriptors could be used for authorship determination. Furthermore, such collections are finite and often limited whereas the recent computer vision models usually require large datasets for fine-tuning. The capacity to generate lifelike synthetic data could be very useful for that purpose.\\
 
-Computer vision has been widely dominated by Convolutional Neural Networks (CNNs): deep learning models that use a set of predefined layers such as pooling or convolution used consecutively. They are tailored and have intrinsic bias toward two-dimensional visual data and prove themselves very good and efficient at extracting features from vision. However, the newest transformer-based architectures such as the encoder-decoders, used initially in large language models (LLMs), are becoming serious contenders in the computer vision field. Albeit very hungry for data compared to their historical counterpart due to the complete unbiased start, they are capable of extracting good features from scratch and work for a variety of classical vision problems. \\
+Computer vision has been widely dominated by Convolutional Neural Networks (CNNs): deep learning models that use a set of predefined layers such as pooling or convolution used consecutively. They are tailored and have intrinsic bias toward two-dimensional visual data and prove themselves very good and efficient at extracting features from vision. However, the newest transformer-based architectures such as the encoder-decoders, used initially in large language models (LLMs), are becoming serious contenders in the computer vision field. Albeit very greedy for data compared to their historical counterpart due to their start from scratch, they are capable of extracting good features and work for a variety of classical vision problems. \\
 
-This project aims to explore the capacity of a transformer-based architecture to produce a simple online signal of modern handwriting from its offline signal. In order to prove this capacity, the concrete goal is to train a model to extract a vector of (x, y) coordinates using the image from a handwritten text. The resulting coordinate vector is assumed to be uniformly sampled as in the training data, introducing the notion of speed with each subsequent coordinate, making the model more than a simple skeletonization tool and forcing it to understand curvatures, accelerations, etc. to produce consistent trajectories. Furthermore, an additional goal is to know whether an analytical model's output could guide the transformer using a recurrent network in the loop as a proof of concept.
+This project aims to explore the capacity of a transformer-based architecture to produce a simple online signal of modern handwriting from its offline image. In order to prove this capacity, the concrete goal is to train a model to extract a vector of (x, y) coordinates using the image from a handwritten text. The resulting coordinate vector is assumed to be uniformly sampled as in the training data, introducing the notion of speed with each subsequent coordinate, making the model more than a simple skeletonization tool and forcing it to understand curvatures, accelerations, etc. to produce consistent trajectories. Furthermore, an additional goal is to know whether an analytical model's output could guide the transformer using a recurrent network in the loop as a proof of concept.
 
 \chapter {Related Work}
-Handwriting as a signal is hard to model. It is therefore difficult to identify, reproduce, or analyze a text from a two-dimensional image. Analytical models have proposed solutions to obtain mathematical descriptions of such signals, but such endeavor is very complex and requires a lot of computational efforts, which drives us to explore alternate solutions. \\
+Handwriting as a signal is hard to model. It is therefore difficult to reproduce or analyze an online data series from a two-dimensional image. Analytical models have proposed solutions to obtain mathematical descriptions of such signals, but this endeavor is very complex and requires a lot of computational efforts, which drives us to explore alternate solutions. \\
 
 \begin{wrapfigure}{r}{6.0cm}
     \includegraphics[width=6.0cm]{images/Related_works/attention_is_all.png}
@@ -86,7 +84,7 @@ Handwriting as a signal is hard to model. It is therefore difficult to identify,
 
 Attention Is All You need \cite{DBLP:journals/corr/VaswaniSPUJGKP17} iterates over the work of Recurrent Neural Network (RNNs) based models for language-related tasks such as translation to introduce a staple of modern artificial intelligence: The transformer model. Whereas its predecessors were based on hidden states sequentially generated and passed along during training, the transformer proposes an innovative approach based entirely on \emph{Attention Mechanism} with parallelization at its core. This allowed the transformer to quickly out-perform its start-of-the-art counterparts and impose an efficient design that paved the ground for modern Large Language Models (LLMs). \\
 
-The attention mechanism is the core operation of a transformer. The standard signal-processing models usually rely on Convolutional Neural Networks (CNNs), based on convolutions, to extract features from data. A CNN typically learns to adapt its convolutional kernel to analyze the data of a signal. Attention, on the other hand, focuses on the signal itself and the correlation between its elements. Attention Heads are based around scaled Dot-Product Attention. This operation has three inputs, A Query, A Key and a Value vector - or Q, K, V; with the Query and the Key sharing a dimension. The Query and Keys undergo a scaled multiplication; the result of which is passed through a softmax layer to obtain attention digits that are then transposed upon the Values vector. This computation is not often done on the whole signal at once: Rather, each element of the signal is subdivided into smaller sub-elements of equal dimensions that each undergo the attention mechanism. Each Attention processing unit is called a Head, and each Head attends to elements of dimensions \(D_{hidden}/Heads\). \par
+The attention mechanism is the core operation of a transformer. The standard signal-processing models usually rely on Convolutional Neural Networks (CNNs), based on convolutions, to extract features from data. A CNN typically learns to adapt its convolutional kernel to analyze the data of a signal. Attention, on the other hand, focuses on the signal itself and the correlation between its elements. Attention Heads are based around scaled Dot-Product Attention. This operation has three inputs, A Query, A Key and a Value vector - or Q, K, V; with the Query and the Key sharing a dimension. The Query and Keys undergo a scaled multiplication; the result of which is passed through a softmax layer to obtain attention digits that are then transposed upon the Values vector. This computation is not often done on the whole signal at once: Rather, each element of the signal is subdivided into smaller sub-elements of equal dimensions that each undergo the attention mechanism. Each Attention processing unit is called a Head, and each Head attends to elements of dimensions \(D_{hidden}/N_{Heads}\).\par
 Self-Attention refers to the utilization of an attention layer where Q, K and V are the same vector. Usually, self-attention is done on the signal itself. The outcome is an attention map that emphasizes the most important parts of the signal. \\
 
 The Transformer model uses auto-regression to generate signals. The Inputs go through the encoder and a first token is fed through the decoder. Then, each generated token is added to the current output vector, shifted right, and fed again through the decoder until the end. For language-focused tasks, the fixed input can be a sentence to translate or a question to answer - The model then generates each word of the response until it is satisfied. The design overview of the figure \ref{fig:design_overview_attention_is_all} shows that the encoder passes the input through a self-attention layer meanwhile the decoder passes the target through a self-attention layer. These two Attention Maps are passed through a cross-Attention layer in the decoder, a feed-forward network, and a final softmax to obtain the next prediction. \par
@@ -109,8 +107,8 @@ As shown in Figure \ref{fig:vit_design}, ViT makes images digestible for transfo
 
 \begin{wrapfigure}{r}{3.5cm}
     \includegraphics[width=3.5cm]{images/Related_works/deit_distill_token.png}
-    \label{fig:deit_distill_token}
     \caption{Distillation token added to the DeiT model}
+    \label{fig:deit_distill_token}
 \end{wrapfigure}
 
 Interestingly, ViT and DeiT share a similar architecture feature in the form of an additional token that holds different purposes.\par
@@ -125,8 +123,8 @@ The goal of their work is to transform a handwriting signal into a set of unique
 
 \begin{wrapfigure}{l}{6.8cm}
     \includegraphics[width=6.8cm]{images/Related_works/set_sort architecture.png}
-    \label{fig:set_sort_architecture}
     \caption{Overview of the Set, Sort! architecture}
+    \label{fig:set_sort_architecture}
 \end{wrapfigure}
 
 The architecture is based on a pair of transformers. The first one, SET, is very similar to a Vision transformer as it consists of an encoder taking coordinates as input and outputting descriptor vectors, acting as the eyes of the duo. The second, Sort, takes all the set's embeddings as well as the partial ordered set to generate the next index in the set, with the auto-regression continuing until the set is fully indexed. As shown in the figure \ref{fig:set_sort_architecture}, the Sort transformer is very traditional in its architecture, with the cross-attention being performed with the output of the target self-attention and the output of the decoder's embeddings. \\
@@ -613,13 +611,13 @@ The current mechanism of image reduction cuts sequences in half until the genera
 With this method, two thresholds coexist: The image shape threshold that is used to compute the re-scale factor, and another maximum shape threshold to exclude extreme outliers. If the rescale factor is too high, the signal can become illegible. The figure \ref{fig:resize} shows an example of four signals that are re-scaled, having final images that are about half their sizes and are still readable. But the signals are all aligned in the time and space axis to have a pixel represent the same amount of distance and two points represent the same duration in order to correctly encapsulate the speed. Resizing might respect the shape of the images, but ultimately distorts the distances and might completely prevent the model from learning acceptable speeds. Cutting the signals is considered preferable for the moment, as an imperfect but improvable method is better than loosing spatio-temporal consistency.
 
 \chapter {Experiments}
-With the design laid out, a series of experiments is conducted to analyze the trainability of the model. The first experiment verifies the impact of the structural features that were identified. Then, the second experiment focuses on the usefulness of adding data augmentation in the training dataset. Lastly, the third experiment is a classical but limited hyperparameter search to identify the final best candidate for this problem. \\
+With the design laid out, a series of experiments is conducted to analyze the trainability of the model. The first experiment verifies the impact of the structural features that were identified. Then, the second experiment focuses on the usefulness of adding data augmentation in the training dataset. The third experiment is a classical but limited hyperparameter search to identify the final best candidate for this problem. We then study the effect of training length on the model's training results, and finish by an ablation study of the LSTM module.\\
 
 As the model is written in Pytorch, the RayTune library has been selected to run the experiments. RayTune allows for hyperparameter exploration at scale and offers a convenient way to define a search space amongst which the hyperparameter values will be sampled. Furthermore, it manages search optimization algorithms such as median pruning which reduces the number of total training to perform. For the following experiments, a training iteration is defined as a full epoch on the training dataset containing of a training and a testing loop. This yields two loss values: An average training loss and an average testing loss over the epoch. In order to avoid over-fitting and encourage generalization, the testing loss is used as the goal of the searches.\\
 
 Running a parameter search is expensive in terms of computing power, with many training being done on suboptimal combinations. The ressources allotted to the thesis are limited with respect to the model's requirements, specifically because transformers are data-hungry by nature. To keep a reasonable trade-off between training time and relevance of the results, a single training dataset is crafted and used throughout the searches. In order to maintain consistency between the observed results and ensure reproducibility, the dataset is saved to disk, ensuring the strict separation of train/test/valid signals and guaranteeing that the same signals are used on the different trainings.\\
 
-The training dataset is called \textit{brush\_96.96\_[train/test/valid]\_s\_[mode]}. This dataset is created from the BRUSH dataset, with each image kept to a 96*96 pixels format by reduction. As both datasets, BRUSH and UNIPEN, are very large, only a subset is used during these searches. The goal is to identify a relevant subset amongst the dataset in order to perform meaningful training. For the following experiment, the BRUSH signals are restricted to signals containing at least 15 coordinates after the pre-processing steps. This is done in order to avoid ingesting very small signals consisting of single / very low data point count, which lack information and are not as interesting for the model's training with regards to learning trajectories and coordinates-image correlation. 5\% of this subset's signals are taken at random, and are further separated in train/test datasets with a ratio of 0.8:0.2. Then, one thousand signals containing less than 50 datapoints and one thousand signals containing more than 50 datapoints are further sampled to constitute the validation dataset - signals that are neither in the train nor the test sets and that are used only on final model evaluation, mostly by obtaining whole predicted signals during inference, and have never been seen during training.\\
+The training dataset is called \textit{brush\_96.96\_[train/test/valid]\_s} and is declined in three variations - un-augmented, augmented, and mix of both. This dataset is created from the BRUSH dataset, with each image kept to a 96*96 pixels format by reduction. As both datasets, BRUSH and UNIPEN, are very large, only a subset is used during these searches. The goal is to identify a relevant subset amongst the dataset in order to perform meaningful training. For the following experiment, the BRUSH signals are restricted to signals containing at least 15 coordinates after the pre-processing steps. This is done in order to avoid ingesting very small signals consisting of single / very low data point count, which lack information and are not as interesting for the model's training with regards to learning trajectories and coordinates-image correlation. 5\% of this subset's signals are taken at random, and are further separated in train/test datasets with a ratio of 0.8:0.2. Then, one thousand signals containing less than 50 datapoints and one thousand signals containing more than 50 datapoints are further sampled to constitute the validation dataset - signals that are neither in the train nor the test sets and that are used only on final model evaluation, mostly by obtaining whole predicted signals during inference, and have never been seen during training.\\
 
 \section {Structural features}
 Three structural features are defined and experimentally tested: The presence/absence of a prediction token, the utilization of a RNN in the form of a LSTM model in the decoder, and the trainability (respectively locked values) for the positional encoding added to the embedded input vectors. These experimental features aim to help the training process of the model, either by influencing its convergence speed or reaching better minimized losses. In order to test them, a full grid-search using RayTune is performed on the 8 possible combinations on 4 epochs at maximum. A median cut is used to preemptively prune poor performing combinations after a grace period of two epochs to account for eventual late start effects.\\
@@ -676,7 +674,7 @@ The table \ref{table-structural-features-results} shows the results of the grid-
     \label{fig:rerun_side_by_side}
 \end{figure}
 
-The results of the re-run of this combination are shown in the side-by-side graphs on the figure \ref{fig:rerun_side_by_side}. It is interesting to observe in the detailed train-test losses per batch in the \ref{fig:rerun_detailed_train_test} that the re-run suffered the same fate of exploding loss during the last epoch. This explosion altered the final average train loss to reach the scale of hundreds, similarly as during the initial grid-search. Although the model is capable of getting back on track after a sufficient number of batches, the test loss is still negatively impacted as shown in the \ref{fig:rerun_train_test}. This final test loss is added to the result table as an additional point of information, but the fact that two identical problems happened on the same combinations can be indicative of a bad mix. \\
+The results of the re-run of this combination are shown in the side-by-side graphs on the figure \ref{fig:rerun_side_by_side}. It is interesting to observe in the detailed train-test losses per batch in the figure \ref{fig:rerun_detailed_train_test} that the re-run suffered the same fate of exploding loss during the last epoch. This explosion altered the final average train loss to reach the scale of hundreds, similarly as during the initial grid-search. Although the model is capable of getting back on track after a sufficient number of batches, the test loss is still negatively impacted as shown in the figure \ref{fig:rerun_train_test}. This final test loss is added to the result table as an additional point of information, but the fact that two identical problems happened on the same combinations can be indicative of a bad mix. This might also hint at a problem of high learning rate for which reducing the value could be advised.\\
 
 \begin{figure}[H]
     \centering
@@ -695,7 +693,7 @@ In the train and the test cases, it is interesting to see that the prediction to
 \label{fig:results_structural_LSTM}
 \end{figure}
 
-The second figure \ref{fig:results_structural_LSTM} presents the same presence-absence scenario focused on the LSTM. In the upper graph showing the train losses, the average with or without are very close. However, two out of the four models without LSTM are stopped at epoch two as poor relative performers. Furthermore, the bottom graph showing the test losses reveals that the LSTM models attain a faster convergence for the first two epochs while converging to the same average from the third on. However, the final loss is very close with or without the presence of LSTM. It is important to note though that with two poor performers eliminated, the average without LSTM is skewed toward its better performers. Overall, although the observations are not as overwhelming as for the presence of a prediction token, the presence of a LSTM token seems to help early convergence and produce slightly better models without being a ground-breaking innovation. \\
+The second figure (\ref{fig:results_structural_LSTM}) presents the same presence-absence scenario focused on the LSTM. In the upper graph showing the train losses, the average with or without are very close. However, two out of the four models without LSTM are stopped at epoch two as poor relative performers. Furthermore, the bottom graph showing the test losses reveals that the LSTM models attain a faster convergence for the first two epochs while converging to the same average from the third on. However, the final loss is very close with or without the presence of LSTM. It is important to note though that with two poor performers eliminated, the average without LSTM is skewed toward its better performers. Overall, although the observations are not as overwhelming as for the presence of a prediction token, the presence of a LSTM token seems to help early convergence and produce slightly better models without being a ground-breaking innovation. \\
 
 \begin{figure}[H]
     \centering
@@ -706,12 +704,12 @@ The second figure \ref{fig:results_structural_LSTM} presents the same presence-a
 
 Lastly, the figure \ref{fig:results_structural_posLearnable} shows the same experiment results focused on the positional tokens being trainable or fixed. In this case, both averages of the upper (train) and the lower (test) graphs show no strong sign of impact of the structural feature. This could indicate that having positional token learnable is neither helpful nor harmful to the model's training. However, the small nature of the dataset used (5\% of BRUSH) and the little amount of epochs could be too small to learn meaningful position tokens, whereas a longer training could reveal more usefulness of this feature. \\
 
-The conclusion of this experiment is that prediction token shows strong signs of being beneficial to the model's training with overall better and faster convergence over the training period. The conclusion is a bit more nuanced for the LSTM, which still shows good signs and can be investigated further. Lastly, the position token being learnable has little incidence on the training with these parameters, but it is hard to conclude on the root cause being the feature itself or the low amount of training resources during the grid search.
+The conclusion of this experiment is that prediction token shows strong signs of being beneficial to the model's training with overall better convergence over the training period. The conclusion is a bit more nuanced for the LSTM, which still shows good signs and can be investigated further. Lastly, the position token being learnable has little incidence on the training with these parameters, but it is hard to conclude on the root cause being the feature itself or the low amount of training resources during the grid search.
  
 \section {Impact of augmentation}
 The second experiment intends to test the addition of a data augmentation in the form of a Gaussian noise to help the model achieve better consistency of the generated signals during inference. The experimental protocol is as follows: Three models are trained. The first one only sees the original data, which predicts on the images generated by the coordinates, making a perfect match. The second model is given only noised data, meaning there is virtually little match between the coordinates and the images. Lastly, the third model is given the mix of augmented and unaugmented data.\par
 The train and test losses of each model are not interesting comparison metrics as they only reflect the ability to predict the next label based on a perfect sequence. With that in mind, the unaugmented model will be favored by the perfect conditions of its training meanwhile the mixed model will be favored as it has twice the amount of data during training.\par
-The comparison will be structured around the quality of the generated signals during inference on the same validation dataset containing \(2000\) signals, of which half are considered "small" and half are "large", with a respective length \(15 <= length <= 50\) and \(50 <= length\). The first point of comparison is the general length of the generated signal the models tend to have a hard time stopping. The second point of comparison are the global evaluation metrics - DTW, Euclidean distances, and image differences - to compare the three models.
+The comparison will be structured around the quality of the generated signals during inference on the same validation dataset containing \(2000\) signals, of which half are considered "small" and half are "large", with a respective length \(15 <= length <= 50\) and \(50 <= length\). The first point of comparison is the general length of the generated signal as the models tend to have a hard time stopping. The second point of comparison are the global evaluation metrics - DTW, Euclidean distances, and image differences - to compare the three models.
 
 \begin{figure}[H]
     \centering
@@ -746,8 +744,7 @@ The distances over the large signals are plotted on the figure \ref{fig:distance
 The addition of augmentation result in an increasing overall distance to the original large signals. 
 Although the Q1 and Q2 are similar, the third quartile becomes larger, meaning we have a larger trail of signals of lower quality. \\
 
-The distances are only one side of the coin as they inform us only of the capacity of the model to stick to the original signal, but different explanations could result in the slight loss of performance for augmented models. For example, different 
-prediction speed will induce a latent variation of the distances without impacting the shape of the image. We also observe that the augmentation of the point-to-point distance does not correlate with an augmentation of the DTW distance for the mixed model.
+The distances are only one side of the coin as they inform us only of the capacity of the model to stick to the original signal, but different explanations could result in the slight loss of performance for augmented models. For example, different prediction speeds will induce a latent variation of the distances without impacting the shape of the image. We also observe that the augmentation of the point-to-point distance does not correlate with an augmentation of the DTW distance for the mixed model.
 
 \begin{figure}[H]
     \centering
@@ -774,9 +771,8 @@ Lastly, the ratios over large signals plotted on the figure \ref{fig:image_diff_
 the augmentation performs slightly better than the unaugmented model, and the mix of both have a higher matching. The only exception is for the difference from the original image
 where the mixed dataset has a slightly worse matching ratio and was unable to stick to the original skeleton. \\
 
-The conclusion of the experiment is that the addition of the augmentation itself is beneficial, especially for the predicted image skeletons sticking better to the originals,
-although we observe better results when the model is able to train with both the "perfect" (unaugmented) and the noised signals. 
-Although this double the size of the dataset, this produces better results and the mix of both is consistently better than one or the other.
+The conclusion of the experiment is that the addition of the augmentation itself is beneficial, especially for the predicted image skeletons sticking better to the originals signals, although we observe better results when the model is able to train with both the "perfect" (unaugmented) and the noised signals. 
+Although this doubles the size of the dataset, the results are better and the mix of both is consistently better than one or the other.
 
 \section {Best candidate}
 The third experiment aims to find the best candidate model by doing a hyperparameter exploration. As discussed in the design section, the architecture of the model has a lot of parameters
@@ -830,7 +826,8 @@ The FFN activation function and expansion ratios are excluded from the search an
 The search is used to explore the Learning rate, the number of Heads, the number of layers, and the pair of weights as they are suspected of having a great effect on the final results.
 
 \begin{table}[H]
-    \centering
+    \centering   
+    \caption{Repartition of the dimension per head}
     \begin{tabular}{ |c|c|c|c|c|c|c|c| }
         \hline
             \multicolumn{8}{|c|}{Repartition of dimensional subspace per head} \\
@@ -840,7 +837,6 @@ The search is used to explore the Learning rate, the number of Heads, the number
             Dimension per head & 128 & 64 & 32 & 16 & 8 & 4 & 2 \\
         \hline
     \end{tabular}
-    \caption{Repartition of the dimension per head}
     \label{fig:head_dimensions}
 \end{table}
 
@@ -850,6 +846,7 @@ occupies a dimensional subspace of \(64\). In our case, with a \(D_{hidden}\) of
 
 \begin{table}[H]
     \centering
+    \caption{hyperparameter selected for the Search}
     \begin{tabular}{ c|c }
         \hline
             Hyperparameter & Values \\
@@ -860,7 +857,6 @@ occupies a dimensional subspace of \(64\). In our case, with a \(D_{hidden}\) of
             Losses Weights & \((0,1), (1,0), (1,1), (1,1), (1,3), (3,1)\)\\
         \hline
     \end{tabular}
-    \caption{hyperparameter selected for the Search}
     \label{table:head_dimensions}
 \end{table}
 
@@ -1063,9 +1059,7 @@ On smalls signals, the model is able to perform very good prediction as shown in
 has learned a very good representation of the ductus of the English language for the letter "N", as it starts by going downward in the first vertical edge before going back 
 in its track to finish the shape, albeit at a slower pace compared to the original writer. In the bottom prediction, the model writes an almost perfect 
 cursive "w", with a very good speed relative to the original writer at each time step.\par
-To give some perspective over the metrics used for comparison during the experiments, 
-the above prediction scored \([52\%,48\%,50\%]\) on image matching and \([97, 149]\) on DTW and Point-to-Point Euclidean distance 
-hile the below prediction scored \([44\%,40\%,42\%]\) matching and \([167, 435]\) DTW and distance. These results are located between the average and the third quartile 
+To give some perspective over the metrics used for comparison during the experiments, the above prediction scored \([52\%,48\%,50\%]\) on image matching and \([97, 149]\) on DTW and Point-to-Point Euclidean distance while the below prediction scored \([44\%,40\%,42\%]\) matching and \([167, 435]\) DTW and distance. These results are located between the average and the third quartile 
 for the model, meaning they are good scorer but not outliers, whereas they could be considered as very good predictions.
 
 \begin{figure}[H]
@@ -1146,12 +1140,12 @@ Finally, we show that the model can almost write its cousin's title properly,
 paying homage to the Large Language Models that inspired its architecture, as seen in the Figure \ref{fig:llm}.\\
 
 Our model is able to predict very precise coordinate signals on what's defined as "small signals" under 50 coordinates to predict, with very convincing shapes and speeds. It appears that it does so by learning an alphabet of characters form which the general ductus are learned. Multiple examples show that the model adapt the basis ductuses to the variations in shapes by the writer, and the generated signal show good respect for the location and bounding boxes of the images. One remaining issue on large signals is the EOS generation: making models learn for longer allowed them to learn to generate EOS to an extent, but we still observe some failures to do so. \par
-The generation on large signals is more complex and the results are less convincing. The predictions are often scribbles with general shapes (big curves, loops, bounding boxes)respecting the original signal, but the predictions are hardly legible. The model is still able to react to very large letter and words, and seems capable of generating the start of the signal until the point where it gets lost and stops. Although the limitation to large signals is currently a large handicap to bear, we could imagine a mechanism of pre-division of the large signals into smaller sub-signals to ingest. To describe a full sentence from an offline image, the SET, SORT! transformer can be used to obtain the set of ordered sub-strokes composing the overall writing, and have each substroke processed by our model, resulting in the full 
+The generation on large signals is more complex and the results are less convincing. The predictions are often scribbles with general shapes (big curves, loops, bounding boxes) respecting the original signal, but the predictions are hardly legible. The model is still able to react to very large letter and words, and seems capable of generating the start of the signal until the point where it gets lost and stops. Although the limitation to large signals is currently a large handicap to bear, we could imagine a mechanism of pre-division of the large signals into smaller sub-signals to ingest. To describe a full sentence from an offline image, the SET, SORT! transformer can be used to obtain the set of ordered sub-strokes composing the overall writing, and have each substroke processed by our model, resulting in the full 
 coordinate vector of the image.
 \par
 The model seems able to generalize on individual learned characters but is not able to predict zero-shot samples: if a character is unseen, it will probably not 
 be predicted correctly. This means that the training of the model must be adapted to the task it has to solve, and obtaining a model to work with the papyrus will require 
-to find an adapted annotated dataset large enough to train on. \par
+to find an adapted annotated dataset large enough to train on.\par
 
 \section {Future works}
 During the implementation of the project, multiple axes of explorations have been identified. 
@@ -1173,10 +1167,10 @@ inertia and previous context of the signal, or by doing a stratification when ex
 of writers for BRUSH and providers for UNIPEN and overall characters between them. The question of whether all data is good to keep is also worth to be investigated.\\ 
 
 The metrics used for the evaluation - matching images, DTW and distances - allow a comparison of the shapes of the generated signals, but are very sensible 
-to offsets in the image. It is hard to find good evaluators and more exploration around this problematic would be helpful. \\ 
+to offsets in the image. It is hard to find good evaluators and more exploration around this problematic would be helpful. For example, the image differences currently do a pixel count of the non-matching pixels meanwhile assigning further value to the pixels dependend on their distances to the skeleton, similarly as is done on the skeleton loss, would give a fairer and less binary evaluation of the shapes where being closer to the skeleton would be awarded.\\
 
 The EOS signal issue and the overall low capacity of the models to stop the prediction, although alleviated when trained for a sufficient amount of time,
-is still an issue to keep on the radar for enhancements. \\ 
+is still an issue to keep on the radar for enhancements. Some heuristic evaluations are currently in place to alleviate the issue, such as the ink stopping or the repeating coordinates detection, but the model should ideally call for the end of the signals itself.  \\ 
 
 Lastly, in order to adapt this work for the papyrus collection's analysis, the question of transferable knowledge to other ductus could be interesting. There is 
 very little online data to train on: online image is impossible to retrieve from original collections and can only be re-created as closely as possible with 
@@ -1204,7 +1198,28 @@ offline images \textit{on the English language, with a sufficient dataset and on
 \appendix
 \chapter{Appendix}
 
-\section{LSTM results} \label{section:appendix_lstm}
+\section{Training Experiment Additional Results} \label{section_appendix_train}
+
+\begin{table}[h!]
+    \centering
+    \begin{tabular}{|l|p{7cm}|p{7cm}|}
+        \hline
+        \textbf{Model} & \textbf{Train Loss (per epoch)} & \textbf{Test Loss (per epoch)} \\ \hline
+        Mixed & 
+        \texttt{[5.6347, 5.4208, 5.3910, 5.3948, 5.3612, 5.4228]} & 
+        \texttt{[4.5552, 4.4087, 4.4032, 4.2478, 4.4224, 4.4341]} \\ \hline
+        Best 30 Epochs & 
+        \texttt{[5.6583, 4.8850, 4.7804, 4.7262, 4.6731, 4.6251, 4.5847, 4.5530, 4.5335, 4.5065, 4.4758, 4.4462, 4.4402, 4.4103, 4.4053, 4.3812, 4.3703, 4.3516, 4.3339, 4.3338, 4.3083, 4.3124, 4.2821, 4.2717, 4.2665, 4.2507, 4.2567, 4.2337, 4.2193, 4.2143]} & 
+        \texttt{[4.3309, 4.1519, 4.1430, 3.9544, 4.1377, 4.2722, 3.8645, 3.9530, 3.8412, 3.8829, 3.7568, 3.7077, 3.8590, 3.7499, 3.6921, 3.7238, 3.6533, 3.7473, 3.6801, 3.6480, 3.7032, 3.6762, 3.5819, 3.5588, 3.6060, 3.6090, 3.5694, 3.6012, 3.5831, 3.5283]} \\ \hline
+        Best M-8 Epochs & 
+        \texttt{[5.0051, 4.6457, 4.5260, 4.4459, 4.4070, 4.3730, 4.3504, 4.3111]} & 
+        \texttt{[4.5692, 3.9553, 3.8419, 3.8741, 3.8165, 3.7101, 3.7730, 3.6543]} \\ \hline
+        \end{tabular}
+        \caption{Train and Test Losses per epoch for Mixed, Best 30 Epochs, and Best M-8 Epochs Models}
+    \label{tab:losses}
+\end{table}
+
+\section{LSTM Additional results} \label{section:appendix_lstm}
 
 \begin{figure}[h!]
     \centering
@@ -1232,6 +1247,5 @@ offline images \textit{on the English language, with a sufficient dataset and on
 
 \bibliography{bibliography}
 \bibliographystyle{plain}
-
 
 \end{document}

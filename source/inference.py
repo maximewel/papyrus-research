@@ -22,7 +22,7 @@ import numpy as np
 import cv2
 
 #folder_model_to_load = "brush_96_10epochs_pred"
-folder_model_to_load = "best_m_8_epochs"
+folder_model_to_load = "best_m_20_epochs"
 
 PATCHES_DIM = (16, 16)
 
@@ -173,15 +173,8 @@ if __name__ == "__main__":
         
         plt.ion()
 
-        nextIndex = 50
+        nextIndex = 1
         while nextIndex < len(dataset):
-            image, patched_image, padding, current_signal, label = dataset[nextIndex]
-            nextIndex += 1
-            
-            current_signal = torch.tensor(current_signal, device=device)
-            patched_image = torch.tensor(patched_image, device=device)
-            padding = torch.tensor(padding, device=device)
-
             #Create image
             fig, axs = plt.subplots(1, 3, figsize=(10, 5))
             axs[0].set_title('Original image')
@@ -194,6 +187,13 @@ if __name__ == "__main__":
             wm = plt.get_current_fig_manager()
             wm.window.state('zoomed')            
             plt.show(block=False)
+
+            image, patched_image, padding, current_signal, label = dataset[nextIndex]
+            nextIndex += 1
+            
+            current_signal = torch.tensor(current_signal, device=device)
+            patched_image = torch.tensor(patched_image, device=device)
+            padding = torch.tensor(padding, device=device)
 
             print(f"Selecting random signal n°{nextIndex} of length {len(current_signal)}")
             fig.suptitle(f'Show-off on signal n°{nextIndex}, length {len(current_signal)}')
@@ -223,9 +223,9 @@ if __name__ == "__main__":
                 while not stop_signal:
                     print(f"\rGenerating point {i}")
 
-                    print(f"Initial signal around {i}:\n{current_signal[max(i-5,0):i+5]}")
-                    print(f"Last 5 result:\n{resultSignal[-5:]}")
-                    print(f"Last 5 working:\n{working_signal[-5:]}")
+                    # print(f"Initial signal around {i}:\n{current_signal[max(i-5,0):i+5]}")
+                    # print(f"Last 5 result:\n{resultSignal[-5:]}")
+                    # print(f"Last 5 working:\n{working_signal[-5:]}")
 
                     if SHOW_WEIGHTS:
                         res, weights = model.forward(patched_image.unsqueeze(0), padding.unsqueeze(0), pack_sequence(working_signal.unsqueeze(0)), return_encoder_weights=True)
@@ -241,9 +241,7 @@ if __name__ == "__main__":
                     print(f"Generated {res}")
 
                     if REPLACE_ON_SKELETON and REPLACE_ON_SKELETON_ON_RES:
-                        print(f"Res not on skel: {res}")
                         res = closest_point_on_skeletton(orig_image, res)
-                        print(f"Res on skel: {res}")
 
                     resultSignal = torch.vstack([resultSignal, res])
 
@@ -257,6 +255,12 @@ if __name__ == "__main__":
 
                     live_orig_image = image_from_result(current_signal[:i+1], mult_tensor, IMAGE_MAX_SHAPE)
                     live_orig_display.set_data(live_orig_image)
+
+                    #ink: Trick to early stop
+                    if ink(working_signal) > total_signal_ink:
+                        print(f"Stop With INK")
+                        stop_signal = True
+                        resultSignal = resultSignal[:-1]
 
                     result_image = image_from_result(resultSignal, mult_tensor, IMAGE_MAX_SHAPE)
                     result_display.set_data(result_image)
@@ -274,15 +278,11 @@ if __name__ == "__main__":
                         print(f"Early stop - identical values loop detected in the last {STOP_CONDITION_IDENTICAL_OUTPUTS} outputs")
                         stop_signal = True
                     
-                    #ink: Trick to early stop
-                    if ink(working_signal) > total_signal_ink:
-                        print(f"Stop With INK")
-                        stop_signal = True
-
                     i += 1
 
             print(f"Got final signal of length {resultSignal.shape[0]}")
             plt.close(fig)
+            del current_signal, working_signal, orig_image, result_image, live_orig_image
 
             if CONTINUE:
                 entry = False

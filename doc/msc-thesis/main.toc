@@ -24,4 +24,5 @@
 \contentsline {section}{\numberline {5.2}Future works}{56}{section.5.2}%
 \contentsline {section}{\numberline {5.3}Conclusion}{57}{section.5.3}%
 \contentsline {chapter}{\numberline {A}Appendix}{59}{appendix.A}%
-\contentsline {section}{\numberline {A.1}LSTM results}{59}{section.A.1}%
+\contentsline {section}{\numberline {A.1}Training Experiment Additional Results}{59}{section.A.1}%
+\contentsline {section}{\numberline {A.2}LSTM Additional results}{59}{section.A.2}%

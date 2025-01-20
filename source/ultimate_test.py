@@ -21,7 +21,7 @@ from tkinter import *
 from PIL import Image, ImageTk
 from time import sleep
 
-MODEL_NAME = "best_m_8_epochs"
+MODEL_NAME = "best_m_20_epochs"
 PATCHES_DIM = (16, 16)
 target_image_shape = (96, 96)
 
@@ -31,7 +31,7 @@ sample_rate = 100
 
 class DrawingApp:
 
-    MULT_EFFECT = 4
+    MULT_EFFECT = 2
     CANVAS_BASE_SIZE = 96
 
     model: HwTransformer
@@ -56,12 +56,13 @@ class DrawingApp:
 
             # Check if we should stop by ink method
             if STOP_INK:
-                generated_img = ImageHelper.create_image(torch.nn.functional.pad(working_signal.cpu().int(), (0, 1)).numpy(), (93, 93))
                 diff = working_signal[1:] - working_signal[:-1]
                 distances = torch.sqrt(torch.sum(diff**2, dim=1))
                 sum_of_pix = distances.sum()
                 print(f"pix{sum_of_pix} / {stop_ink}")
                 stop_signal = (sum_of_pix >= stop_ink) or (len(working_signal) >= stop_len)
+                if(stop_signal):
+                    working_signal = working_signal[:-1]
             else:
                 stop_signal = (len(working_signal) >= stop_len)
 
@@ -206,7 +207,7 @@ class DrawingApp:
         self.root.update()
 
         #Obtain coordinate vector from image
-        self.signal = self.create_prediction_signal(img, (x,y), len(coordinates), np.sum(img))
+        self.signal = self.create_prediction_signal(img, (x,y), 1.5*len(coordinates), np.sum(img))
 
         self.compute_button.config(state=DISABLED)
         self.play_button.config(state=ACTIVE)
@@ -215,7 +216,7 @@ class DrawingApp:
         for i in range(len(self.signal) - 1):
             x1, y1 = self.signal[i]
             x2, y2 = self.signal[i + 1]
-            self.canvas_showing.create_line(x1*self.MULT_EFFECT, y1*self.MULT_EFFECT, x2*self.MULT_EFFECT, y2*self.MULT_EFFECT, fill="black", width=1)
+            self.canvas_showing.create_line(x1*self.MULT_EFFECT, y1*self.MULT_EFFECT, x2*self.MULT_EFFECT, y2*self.MULT_EFFECT, fill="black", width=2)
             self.root.update()
             sleep(sample_rate / 1000)
 

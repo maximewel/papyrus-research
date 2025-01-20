@@ -475,6 +475,9 @@ def merge_train_test_losses(folder_list):
                 test_losses[folder] = data["test"]        
         else:
             print(f"File not found: {file_path}")
+    
+    print(train_losses)
+    print(test_losses)
 
     # Plot all losses on a single figure
     plt.figure(figsize=(12, 8))
@@ -498,9 +501,9 @@ def merge_train_test_losses(folder_list):
 if __name__ == "__main__":
     #generate_signals_multithread()
 
-    # models_to_test = "mixed", "best_30_epochs", "best_m_8_epochs"]
-    # create_figures_from_data(models_to_test)
+    # models_to_test = ["mixed", "best_30_epochs", "best_m_8_epochs"]
     # merge_train_test_losses(models_to_test)
+    # create_figures_from_data(models_to_test)
 
     models_to_test = ["best_30_epochs", "best_30_epochs_lstm"]
     merge_train_test_losses(models_to_test)
