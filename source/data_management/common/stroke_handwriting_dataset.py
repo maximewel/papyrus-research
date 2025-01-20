@@ -6,6 +6,8 @@ from source.model.blocks.constants.sequence_to_image import ImageHelper
 import os
 from pathlib import Path
 from source.model.blocks.constants.files import *
+import matplotlib.pyplot as plt
+
 
 class StrokeHandwrittingDataset(ABC):
     #Some constants used during pre-processing of the signals before creating the images
@@ -19,6 +21,8 @@ class StrokeHandwrittingDataset(ABC):
     SAVE_RESIZES_TO_FILE = False
     SAVE_IMAGES_NUMBER = 4
 
+    DISPLAY_PROCESS_PIPELINE = True
+
     separate_strokes: bool
     signals_max_shape: tuple[int, int]
 
@@ -26,6 +30,9 @@ class StrokeHandwrittingDataset(ABC):
 
     save_to_file: bool
     datasource_root: str
+
+    #Used only for report purposes (allow to track a single signal)
+    single_signal: bool
 
     def __init__(self, datasource_root:str, separate_strokes: bool = True, signals_max_shape: tuple[int, int] = None, window_size: int = None, save_to_file:bool = False):
         self.separate_strokes = separate_strokes
@@ -54,38 +61,54 @@ class StrokeHandwrittingDataset(ABC):
         Apply all common pre-processes to the signals. Must be called before creating images.
         """
         logger.log(LogChannels.DATA, f"Processing data. Initial Number of signals: {len(self.signals)}")
+        if self.DISPLAY_PROCESS_PIPELINE:
+            self.display_pipeline_images("Original Signal", self.signals)
 
         #Apply artificual cuts to signal
         logger.log(LogChannels.DATA, f"Separating strokes...")
         self.apply_stroke_separation_to_signals()
+        if self.DISPLAY_PROCESS_PIPELINE:
+            self.display_pipeline_images("Signals with Separated Strokes", self.signals)
         logger.log(LogChannels.DATA, f"Strokes done. Number of signals: {len(self.signals)}")
 
         #Apply artificual cuts to signal
         logger.log(LogChannels.DATA, f"Removing false start...")
         self.remove_false_start()
+        if self.DISPLAY_PROCESS_PIPELINE:
+            self.display_pipeline_images("Signals with False start removed", self.signals)
         logger.log(LogChannels.DATA, f"False start removed")
 
         logger.log(LogChannels.DATA, f"Applying windows...")
         self.apply_window_to_signals()
+        if self.DISPLAY_PROCESS_PIPELINE:
+            self.display_pipeline_images("Signals with Windows cut", self.signals)
         logger.log(LogChannels.DATA, f"Windows done. Number of signals: {len(self.signals)}")
 
         #Since signal is cut, align it
         logger.log(LogChannels.DATA, f"Aligning all signals...")
         self.align_all_signal()
+        if self.DISPLAY_PROCESS_PIPELINE:
+            self.display_pipeline_images("Re-aligned signals", self.signals)
         logger.log(LogChannels.DATA, f"Signals aligned.")
 
         #Apply further dataset processing to reduce the size of the maximum image
         logger.log(LogChannels.DATA, f"Checking suspsicious PenUp signals...")
         self.verify_penup_signals()
+        if self.DISPLAY_PROCESS_PIPELINE:
+            self.display_pipeline_images("Signals with Suspicious penup removed", self.signals)
         logger.log(LogChannels.DATA, f"Penup verification done. Number of signals: {len(self.signals)}")
 
         logger.log(LogChannels.DATA, f"Removing all outliers...")
         self.remove_outlier_images_and_cut()
+        if self.DISPLAY_PROCESS_PIPELINE:
+            self.display_pipeline_images("Signals with images cut, outliers removed", self.signals)
         logger.log(LogChannels.DATA, f"Outliers removed. Number of signals: {len(self.signals)}")
 
         #Apply a last align
         logger.log(LogChannels.DATA, f"Aligning all signals...")
         self.align_all_signal()
+        if self.DISPLAY_PROCESS_PIPELINE:
+            self.display_pipeline_images("Re-aligned signals", self.signals)
         logger.log(LogChannels.DATA, f"Signals aligned.")
 
     def apply_stroke_separation_to_signals(self) -> list[list]:
@@ -380,6 +403,10 @@ class StrokeHandwrittingDataset(ABC):
         except Exception as e:
             logger.log(LogChannels.DATA, f"Impossible to retrieve single file, retrieving samples individually")
             self._load_raw_data()
+
+            if self.single_signal:
+                self.signals = self.signals[:1]
+
             self.apply_all_preprocess_to_signals()
 
             if self.save_to_file:
@@ -413,3 +440,24 @@ class StrokeHandwrittingDataset(ABC):
 
         with open(signal_path, "wb") as f:
             np.save(f, signale_to_save)
+
+
+    def display_pipeline_images(self, title: str, signals: list):
+        images = [ImageHelper.create_image(signal) for signal in signals]
+
+        if len(images) == 1:
+            plt.figure()
+            plt.title(title)
+            plt.imshow(images[0], cmap='gray')
+            plt.axis("off")
+        else:
+            len_im_half = len(images) // 2
+            fig, axes = plt.subplots(2, len_im_half)
+            fig.suptitle(title)
+            for i, image in enumerate(images):
+                #Display histogram of sequences
+                axes[i//len_im_half][i%len_im_half].imshow(image, cmap='gray')
+                axes[i//len_im_half][i%len_im_half].axis("off")
+
+        plt.tight_layout()
+        plt.show()

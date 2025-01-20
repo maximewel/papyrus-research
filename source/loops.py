@@ -194,11 +194,12 @@ def do_training(model: HwTransformer, train_loader: DataLoader, test_loader: Dat
                         y_pred = model.forward(images_patches, masks, sequences)
 
                         ### COORD loss ###
-                        coord_loss = coord_criterion(y_pred, labels)
+                        coord_loss = coord_criterion(y_pred, labels) * losses_weights.coord_weight
 
                         ### Skeleton loss ###
+                        label_eos_mask = ~(labels == Tokens.EOS_TENSOR.value).all(dim=1)
                         last_coordinates = retrieve_last_values(sequences)
-                        Skeleton_loss = Skeleton_criterion(last_coordinates, y_pred.detach(), original_images)
+                        Skeleton_loss = Skeleton_criterion(last_coordinates[label_eos_mask], y_pred.detach()[label_eos_mask], original_images) * losses_weights.skeleton_weight
 
                         loss = (coord_loss + Skeleton_loss) / losses_weights.total_weights
                         test_loss += loss.detach().cpu().item()

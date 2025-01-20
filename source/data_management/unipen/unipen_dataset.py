@@ -6,8 +6,9 @@ from source.data_management.common.stroke_handwriting_dataset import StrokeHandw
 class UnipenDataset(StrokeHandwrittingDataset):
     unipen_root: str
 
-    def __init__(self, unipen_root: str, separate_strokes: bool = True, image_max_shape: tuple[int, int] = None, window_size: int = None, save_to_file: bool = False):
+    def __init__(self, unipen_root: str, separate_strokes: bool = True, image_max_shape: tuple[int, int] = None, window_size: int = None, save_to_file: bool = False, single_signal: bool= False):
         self.unipen_root = unipen_root
+        self.single_signal = single_signal
         
         super().__init__(unipen_root, separate_strokes, image_max_shape, window_size, save_to_file)
     

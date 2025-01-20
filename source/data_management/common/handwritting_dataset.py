@@ -16,9 +16,21 @@ from torch import Tensor
 from source.model.blocks.constants.files import *
 import os
 from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
+
 
 from random import shuffle
+from enum import Enum, auto
+
+class GaussianAugmentationMode(Enum):
+    UNAUGMENTED = auto()
+    ONLY_AUGMENTED = auto()
+    MIXED_AUGMENTED_NON_AUGMENTED = auto()
+
+    @staticmethod
+    def hasGaussianNoise(gaussian_augmentation_mode: GaussianAugmentationMode):
+        return gaussian_augmentation_mode is GaussianAugmentationMode.ONLY_AUGMENTED \
+            or gaussian_augmentation_mode is GaussianAugmentationMode.MIXED_AUGMENTED_NON_AUGMENTED
 
 class HandWrittingDataset(Dataset):
     #Dataset variables
@@ -43,6 +55,7 @@ class HandWrittingDataset(Dataset):
         self.dataset_folder_name = dataset_folder_name
 
         subsequences_path = self.datafolder_subsequence_path(dataset_folder_name)
+
         self.size = len(os.listdir(subsequences_path))
         logger.log(LogChannels.DATA, f"Detected {self.size} datapoints on datasetfolder {subsequences_path}")
     
@@ -54,7 +67,7 @@ class HandWrittingDataset(Dataset):
     #Override
     def __getitem__(self, idx):
         if idx >= len(self):
-            raise Exception(f"Invalid index: Dataset of size {len(self)} has no item at index {idx}")
+            raise IndexError(f"Invalid index: Dataset of size {len(self)} has no item at index {idx}")
         
         #Retrieve subsequence
         subsequence_folder = self.subsequence_path_at_index(self.dataset_folder_name, idx)
@@ -119,12 +132,12 @@ class HandWrittingDataset(Dataset):
             return self.collate_batch_lstm
         else:
             return self.collate_batch_transformer
-
+    
     ### Implementation of methods to go from numpy signals to workable tensors ###
     @classmethod
     def prepare_and_save_training_data(cls, signals: list[list], save_to_folder: str, patches_dim: tuple, lstm_mode: bool, 
                                        target_image_shape: tuple[int, int], normalize_coordinate_sequences: bool = True,
-                                       apply_data_augment_gaussian: bool = False):
+                                       augmentation_mode: GaussianAugmentationMode = GaussianAugmentationMode.UNAUGMENTED, only_last: bool = False):
         """
         Transform the data to homogeneous tensors on a rolling window
         Save tensors on disk to be loaded on demand
@@ -140,7 +153,7 @@ class HandWrittingDataset(Dataset):
         Path(cls.datafolder_sequence_path(save_to_folder)).mkdir(parents=True, exist_ok=False)
         Path(cls.datafolder_subsequence_path(save_to_folder)).mkdir(parents=False, exist_ok=False)
 
-        with ProcessPoolExecutor() as executor:
+        with ThreadPoolExecutor() as executor:
             for i in range(0, len(signals), cls.PREPARE_TRAINING_DATA_WINDOW_SIZE):
                 sequences_bundles_to_save = []
                 subsequences_bundles_to_save = []
@@ -154,7 +167,7 @@ class HandWrittingDataset(Dataset):
                 sequences_as_tensor = cls.sequences_to_tensor(subsequence, target_image_shape, normalize_coordinate_sequences)
                 images = cls.build_images(subsequence)
                 patchified_images, patchified_masks = cls.images_to_tensor(images, patches_dim, target_image_shape)
-                signal_subsequences, signal_labels = cls.extract_all_predictable_from_tensor(sequences_as_tensor, lstm_mode, apply_data_augment_gaussian)
+                signal_subsequences, signal_labels = cls.extract_all_predictable_from_tensor(sequences_as_tensor, lstm_mode, augmentation_mode, only_last)
 
                 #Save sequences to disk
                 for i in range(len(sequences_as_tensor)):
@@ -169,9 +182,7 @@ class HandWrittingDataset(Dataset):
                         #Add reference to the sequence so that each subsequence has a direct link to its sequence
                         subsequence_bundle = [np.array(sequence_index), current_signal_subsequence.numpy(), current_signal_label.numpy()]
                         subsequences_bundles_to_save.append((subsequence_datafolder, subsequence_bundle))
-
                         subsequence_index += 1
-                    
                     sequence_index += 1
 
                 # Save datapoints using multiprocessing (runs in background)
@@ -179,6 +190,9 @@ class HandWrittingDataset(Dataset):
 
                 list(executor.map(cls.save_sequence_bundle, sequences_bundles_to_save))
                 list(executor.map(cls.save_subsequence_bundle, subsequences_bundles_to_save))
+
+                del sequences_bundles_to_save
+                del subsequences_bundles_to_save
 
         logger.log(LogChannels.DATA, f"Saved {sequence_index} sequences and {subsequence_index} subsequences to {save_to_folder}")
 
@@ -188,12 +202,11 @@ class HandWrittingDataset(Dataset):
         Save a single datapoint to disk
         """
         filepath, (sequence, image, patchified_image, patchified_masks) = filepath_and_bundle
-        with open(filepath, 'wb') as f:
-            np.savez_compressed(f, 
-                                sequence=sequence,
-                                image=image,
-                                patchified_image=patchified_image,
-                                patchified_masks=patchified_masks)
+        np.savez_compressed(filepath, 
+            sequence=sequence,
+            image=image,
+            patchified_image=patchified_image,
+            patchified_masks=patchified_masks)
         
     @classmethod
     def save_subsequence_bundle(cls, filepath_and_bundle: tuple[str, list]):
@@ -201,15 +214,15 @@ class HandWrittingDataset(Dataset):
         Save a single datapoint to disk
         """
         filepath, [image_id, subsequence, label] = filepath_and_bundle
-        with open(filepath, 'wb') as f:
-            np.savez_compressed(f,
-                                image_id=image_id,
-                                subsequence=subsequence,
-                                label=label)
+        np.savez_compressed(filepath,
+                            image_id=image_id,
+                            subsequence=subsequence,
+                            label=label)
 
     @classmethod
     def datafolder_path(cls, save_folder: str):
-        return os.path.join(DATA_ROOT, DATASET_FOLDER, save_folder)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(current_dir, '..', '..', '..', DATA_ROOT, DATASET_FOLDER, save_folder)
     
     @classmethod
     def datafolder_sequence_path(cls, save_folder: str):
@@ -289,10 +302,14 @@ class HandWrittingDataset(Dataset):
         return signals_as_tensor
 
     @classmethod
-    def extract_all_predictable_from_tensor(cls, signals_as_tensor: list[torch.Tensor], lstm_mode: bool, apply_gaussian_data_augmentation: bool) -> torch.Tensor:
+    def extract_all_predictable_from_tensor(cls, signals_as_tensor: list[torch.Tensor], lstm_mode: bool, 
+                                            augmentation_mode: GaussianAugmentationMode, only_last: bool = False) -> torch.Tensor:
         """Extract all the predictable values (datapoints) from a tensor
         ie: for a tensor of length i, generate i-1 sequences of [0:i] where the goal is to generate sequence i+1
         
+        Args
+        -----
+
         """
         #We do not want the data to be on GPU
         signals_subsequences = []
@@ -311,7 +328,7 @@ class HandWrittingDataset(Dataset):
             labels_current_signal = []
 
             #If necessary, apply gaussian noise to signal (generated for each sequence)
-            if apply_gaussian_data_augmentation:
+            if GaussianAugmentationMode.hasGaussianNoise(augmentation_mode):
                 gaussian_noise = torch.normal(mean=cls.GAUSS_MEAN, std=cls.GAUSS_STD, size=signal.shape)
                 #Important: Remove EOS from being noised
                 gaussian_noise[-1, :] = 0
@@ -326,18 +343,23 @@ class HandWrittingDataset(Dataset):
                 #J Starts at 1 as we expect to always have at least 1 data (The starting point) to predict
                 subsequence = torch.Tensor(signal[:j])
                 label = torch.Tensor(signal[j])
-                subsequences_current_signal.append(subsequence)
-                labels_current_signal.append(label)
+                if augmentation_mode is not GaussianAugmentationMode.ONLY_AUGMENTED:
+                    subsequences_current_signal.append(subsequence)
+                    labels_current_signal.append(label)
 
                 #Take the noised sub-sequence and the original label to avoid learning to predict 'out-of-skeleton' samples
-                if apply_gaussian_data_augmentation:
+                if GaussianAugmentationMode.hasGaussianNoise(augmentation_mode):
                     noised_subsequence = torch.Tensor(noised_signal[:j])
                     orig_label = torch.Tensor(signal[j])
                     subsequences_current_signal.append(noised_subsequence)
                     labels_current_signal.append(orig_label)
-        
-            signals_subsequences.append(subsequences_current_signal)
-            signals_labels.append(labels_current_signal)
+
+            if only_last:
+                signals_subsequences.append([subsequences_current_signal[-1]])
+                signals_labels.append([labels_current_signal[-1]])
+            else:
+                signals_subsequences.append(subsequences_current_signal)
+                signals_labels.append(labels_current_signal)
 
         return signals_subsequences, signals_labels
 
@@ -364,12 +386,12 @@ class HandWrittingDataset(Dataset):
 
         # Plot the pre-augmentation image
         axs[0].imshow(img_pre_augment, cmap="gray")
-        axs[0].set_title("Original Skeleton")
+        axs[0].set_title("Original Signal")
         axs[0].axis("off")  # Hide axes for better visual clarity
 
         # Plot the post-augmentation image
         axs[1].imshow(img_post_augment, cmap="gray")
-        axs[1].set_title("Noised Skeleton")
+        axs[1].set_title("Noised Signal")
         axs[1].axis("off")  # Hide axes for better visual clarity
 
         print(f"Original:\n{pre_signal}")

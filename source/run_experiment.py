@@ -6,12 +6,9 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 from source.loops import do_training
-from source.data_management.brush.brush_dataset import BrushDataset
-from source.data_management.unipen.unipen_dataset import UnipenDataset
 from source.data_management.common.handwritting_dataset import HandWrittingDataset
 from source.model.blocks.hw_lstm import HwLstm
 from torch.utils.data import DataLoader
-from sklearn.model_selection import train_test_split
 
 from source.model.hw_model import HwTransformer
 from source.logging.log import logger, LogChannels
@@ -28,15 +25,15 @@ import torch
 ENCODER_HEADS = 8
 DECODER_HEADS = 8
 
-ENCODER_LAYERS = 12
-DECODER_LAYERS = 12
+ENCODER_LAYERS = 6
+DECODER_LAYERS = 6
 
-AUTOREGRESS_TARGET_LEN = 500
+AUTOREGRESS_TARGET_LEN = 100
 
 MAKE_POSITIONAL_ENCODING_LEARNABLE = False
 
 DROPOUT_RATIO = 0.1
-BATCH_SIZE = 8
+BATCH_SIZE = 64
 
 PATCHES_DIM = (16, 16)
 EMBEDDING_DIMS = 256
@@ -47,19 +44,17 @@ USE_PREDICTION_TOKEN = False
 USE_LSTM = False
 LSTM_MODEL_PATH = "2024-10-24 22-39-02"
 
-DATASET_NAME = "DATASET"
-IMAGE_MAX_SHAPE = (112, 112)
+TRAIN_DATASET_NAME = BRUSH_96_96_TRAIN_S_UNAUGMENTED
+TEST_DATASET_NAME = BRUSH_96_96_TEST_S_UNAUGMENTED
+IMAGE_MAX_SHAPE = (96, 96)
 
 LR = 0.001
-N_EPOCHS = 5
-TRAIN_SIZE = 0.8
-
-USE_BRUSH = True
+N_EPOCHS = 1
 
 WEIGHT_COORD = 1
 WEIGHT_SKELETON = 1
 
-def save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder_layers, autoregress_target_len, dropout_ratio, batch_size, patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path, lr, n_epochs, use_brush, model, return_figures):
+def save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder_layers, autoregress_target_len, dropout_ratio, batch_size, patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path, lr, n_epochs, dataset_name, model, return_figures):
     date = datetime.now().strftime('%Y-%m-%d %H-%M-%S')
     folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, TRANSFORMER_FOLDER, f"{date}")
     os.makedirs(folderPath, exist_ok=True)
@@ -79,7 +74,7 @@ def save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder
                 pickle.dump(figure, f)
         
     filepath = os.path.join(folderPath, ID_CARD_FILE)
-    id_card = IdCardCreator.create_transfo_id_card(use_brush, lr, n_epochs, batch_size, 
+    id_card = IdCardCreator.create_transfo_id_card(dataset_name, lr, n_epochs, batch_size, 
                                                        encoder_layers, decoder_layers, encoder_heads, decoder_heads, 
                                                        dropout_ratio, autoregress_target_len, 
                                                        patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path)
@@ -105,6 +100,9 @@ if __name__ == "__main__":
 
     print(f"Using device: {device} ({torch.cuda.get_device_name(device) if torch.cuda.is_available() else ''})")
 
+    training_dataset_name = os.getenv('TRAIN_DATASET_NAME', TRAIN_DATASET_NAME)
+    test_dataset_name = os.getenv('TEST_DATASET_NAME', TEST_DATASET_NAME)
+
     encoder_heads = int(os.getenv('ENCODER_HEADS', ENCODER_HEADS))
     decoder_heads = int(os.getenv('DECODER_HEADS', DECODER_HEADS))
     encoder_layers = int(os.getenv('ENCODER_LAYERS', ENCODER_LAYERS))
@@ -125,13 +123,8 @@ if __name__ == "__main__":
     use_lstm = bool(int(os.getenv('USE_LSTM', int(USE_LSTM))))
     lstm_model_path = os.getenv('LSTM_MODEL_PATH', LSTM_MODEL_PATH)
 
-    train_size = float(os.getenv('TRAIN_SIZE', TRAIN_SIZE))
-    dataset_size = float(os.getenv('DATASET_SIZE', DATASET_SIZE))
-
     lr = float(os.getenv('LR', LR))
     n_epochs = int(os.getenv('N_EPOCHS', N_EPOCHS))
-
-    use_brush = bool(int(os.getenv('USE_BRUSH', int(USE_BRUSH))))
 
     weight_coord = float(os.getenv('WEIGHT_COORD', WEIGHT_COORD))
     weight_skeleton = float(os.getenv('WEIGHT_SKELETON', WEIGHT_SKELETON))
@@ -140,7 +133,7 @@ if __name__ == "__main__":
 
     if use_lstm:
         #Load pre-trained LSTM model
-        folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, LSTM_FOLDER, LSTM_MODEL_PATH)
+        folderPath = os.path.join('.', SOURCE_FILENAME, MODEL_FOLDER, LSTM_FOLDER, lstm_model_path)
         filepath = os.path.join(folderPath, MODEL_FILENAME)
         print(f"Loading LSTM model from: {filepath}")
         lstm_model: HwLstm = torch.load(filepath)
@@ -152,8 +145,8 @@ if __name__ == "__main__":
     
     do_pin_memory = device != 'cpu'
 
-    train_dataset = HandWrittingDataset(BRUSH_100_100_TRAIN_M_AUGMENTED, False)
-    test_dataset = HandWrittingDataset(BRUSH_100_100_TEST_M_AUGMENTED, False)
+    train_dataset = HandWrittingDataset(training_dataset_name, False)
+    test_dataset = HandWrittingDataset(test_dataset_name, False)
 
     logger.log(LogChannels.INIT, f"Using n° points to predict: Train={len(train_dataset)}, Test={len(test_dataset)}")
 
@@ -168,7 +161,7 @@ if __name__ == "__main__":
                           use_lstm=use_lstm, lstm_module=lstm_model,
                           n_encoder_layers=encoder_layers, n_encoder_heads=encoder_heads, enc_dec_dropout_ratio=dropout_ratio,
                           n_decoder_layers=decoder_layers, n_decoder_heads=decoder_heads,
-                          encoder_patch_dimension=patches_dim, fixed_size_image_dimension=IMAGE_MAX_SHAPE,
+                          encoder_patch_dimension=patches_dim, fixed_size_image_dimension=image_max_shape,
                           autoregressive_target_seq_len=autoregress_target_len,
                           make_positional_encodings_trainable=make_positional_encoding_learnable)
 
@@ -177,11 +170,11 @@ if __name__ == "__main__":
 
     #Start training
     try:
-        return_figures = do_training(model, train_loader, test_loader, device, n_epochs, lr, normalize_coords, IMAGE_MAX_SHAPE, losses_weights)
+        return_figures = do_training(model, train_loader, test_loader, device, n_epochs, lr, normalize_coords, image_max_shape, losses_weights)
     except Exception as e:
         print(f"Encountered exception while training model: {e}")
         raise e
     except KeyboardInterrupt:
         print(f"Training interrupted")
     finally:
-        save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder_layers, autoregress_target_len, dropout_ratio, batch_size, patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path, lr, n_epochs, use_brush, model, return_figures)
+        save_model_and_figures(encoder_heads, decoder_heads, encoder_layers, decoder_layers, autoregress_target_len, dropout_ratio, batch_size, patches_dim, embedding_dims, use_prediction_token, use_lstm, lstm_model_path, lr, n_epochs, (training_dataset_name, test_dataset_name), model, return_figures)

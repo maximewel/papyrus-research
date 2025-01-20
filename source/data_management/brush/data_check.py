@@ -28,10 +28,9 @@ def remove_padding(sequence: torch.Tensor) -> torch.Tensor:
 
 def test_dataset():
     # Init data
-    datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False)
+    datasource = BrushDataset(brush_root=BRUSH_ROOT, separate_strokes=True, save_to_file=False, image_max_shape=(96,96))
 
-    dataset = HandWrittingDataset(datasource.signals, datasource.signals_max_shape, patch_dimension, False, False, False)
-    dataset.prepare_training_data()
+    dataset = HandWrittingDataset(dataset_folder_name=)
 
     unshuffled_loader = DataLoader(dataset, shuffle=False, batch_size=BATCH_SIZE)
 

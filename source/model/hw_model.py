@@ -127,10 +127,10 @@ class HwTransformer(nn.Module):
         #The decoder positional embeddings are added to the target sequence embeddings
         self.decoder_dim = self.autoregressive_target_seq_len
         if self.use_prediction_token:
-            logger.log(LogChannels.DIMENSIONS, f"Use prediction token, going from {self.decoder_dim} to {self.decoder_dim+1}")
+            logger.log(LogChannels.DIMENSIONS, f"Use prediction token, going from {self.decoder_dim} to {self.decoder_dim + 1}")
             self.decoder_dim += 1
         if self.use_lstm:
-            logger.log(LogChannels.DIMENSIONS, f"Use LSTM, going from {self.decoder_dim} to {self.decoder_dim+1}")
+            logger.log(LogChannels.DIMENSIONS, f"Use LSTM, going from {self.decoder_dim} to {self.decoder_dim + 1}")
             self.decoder_dim += 1
         self.decoder_positional_embeddings = nn.Parameter(self.get_positional_embeddings(self.decoder_dim, self.hidden_dim))
         self.decoder_positional_embeddings.requires_grad = self.make_positional_encodings_trainable
@@ -225,7 +225,7 @@ class HwTransformer(nn.Module):
         logger.log(LogChannels.MASKS, f"Sequences len: {original_lengths}, Padding masks:\n{padding_sequences}")
         return torch.stack(normalized_sequences), torch.stack(padding_sequences)
 
-    def forward(self, patchified_images: Tensor, images_padding_masks: Tensor, target_sequences: PackedSequence):
+    def forward(self, patchified_images: Tensor, images_padding_masks: Tensor, target_sequences: PackedSequence, return_encoder_weights: bool = False):
         """Generate the next predictions
         
         Args:
@@ -256,8 +256,15 @@ class HwTransformer(nn.Module):
 
         #Send patchified images to encoder, retrieving embeddings
         encoder_out = embeding_patch_vectors
-        for encoder in self.encoder_layers:
-            encoder_out = encoder(x=encoder_out, source_padding_mask=images_padding_masks)
+        if return_encoder_weights:
+            all_layers_encoder_weights = []
+            for i, encoder in enumerate(self.encoder_layers):
+                encoder_out, encoder_weights = encoder(x=encoder_out, source_padding_mask=images_padding_masks, return_weights=True)
+                all_layers_encoder_weights.append(encoder_weights)
+        else:
+            for encoder in self.encoder_layers:
+                encoder_out = encoder(x=encoder_out, source_padding_mask=images_padding_masks, return_weights=False)
+
         logger.log(LogChannels.INTERNAL_SEQUENCE_TRACE, f"Transformer - Encoder output : {encoder_out}")
 
         ## Decoder ##
@@ -313,4 +320,7 @@ class HwTransformer(nn.Module):
             final_output = self.output_mlp(flattened_decoder_out)
         
         logger.log(LogChannels.INTERNAL_SEQUENCE_TRACE, f"Transformer - Final output : {final_output}")
-        return final_output
+        if return_encoder_weights:
+            return final_output, all_layers_encoder_weights
+        else:
+            return final_output

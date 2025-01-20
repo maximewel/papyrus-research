@@ -1,5 +1,5 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.7.17 Chrome/128.0.6613.36 Electron/32.0.1 Safari/537.36" version="24.7.17" pages="8">
-  <diagram id="C5RBs43oDa-KdzZeNtuy" name="Page-1">
+  <diagram id="C5RBs43oDa-KdzZeNtuy" name="dataset_class_diagram">
     <mxGraphModel dx="1687" dy="984" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="WIyWlLk6GJQsqaUBKTNV-0" />
@@ -74,7 +74,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="xD0Nu2GdW1r10iOzFhq0" name="Page-2">
+  <diagram id="xD0Nu2GdW1r10iOzFhq0" name="data_processing_chain">
     <mxGraphModel dx="1434" dy="836" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -159,7 +159,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="guMsWjaaMotWq5V0V2X6" name="Page-3">
+  <diagram id="guMsWjaaMotWq5V0V2X6" name="batchification">
     <mxGraphModel dx="2261" dy="836" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -422,7 +422,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="pjSfgICusZCx9uQj1dLb" name="Page-4">
+  <diagram id="pjSfgICusZCx9uQj1dLb" name="model_architecture">
     <mxGraphModel dx="3187" dy="3027" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -690,7 +690,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="Copie de Page-4" id="WJhXS8sEjHHrCVItO-RF">
+  <diagram name="inference_loop" id="WJhXS8sEjHHrCVItO-RF">
     <mxGraphModel dx="1434" dy="836" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="syl_iyW7tfhE2moBdS4G-0" />
@@ -812,7 +812,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="Copie de Copie de Page-4" id="NZu-Pag_9z0MYTWzFWb6">
+  <diagram name="training_loop" id="NZu-Pag_9z0MYTWzFWb6">
     <mxGraphModel dx="1195" dy="697" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="wmiqkW8u7a0Ax20ACmad-0" />
@@ -885,7 +885,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="Copie de Page-4" id="yVIx2eQ0CFavjiLQHKCt">
+  <diagram name="model_archit_with_LSTM" id="yVIx2eQ0CFavjiLQHKCt">
     <mxGraphModel dx="1687" dy="2153" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="oSNWQE6mf8nxNRP08fyD-0" />
@@ -1173,7 +1173,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="09ML1VTsMgWc1Ivybcz0" name="Page-6">
+  <diagram id="09ML1VTsMgWc1Ivybcz0" name="Image_padding">
     <mxGraphModel dx="1434" dy="836" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -1224,7 +1224,7 @@
           <mxGeometry x="160" y="160" width="40" height="40" as="geometry" />
         </mxCell>
         <mxCell id="bBLqQBSScu7mDvDNxlsq-18" value="Normalization" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
-          <mxGeometry x="0.1111" width="50" height="50" relative="1" as="geometry">
+          <mxGeometry x="-0.2222" width="50" height="50" relative="1" as="geometry">
             <mxPoint x="175" y="400" as="sourcePoint" />
             <mxPoint x="265" y="400" as="targetPoint" />
             <mxPoint as="offset" />
@@ -1345,13 +1345,6 @@
         <mxCell id="bBLqQBSScu7mDvDNxlsq-89" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0D0D0D;strokeColor=#36393d;" vertex="1" parent="1">
           <mxGeometry x="720" y="530" width="80" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="bBLqQBSScu7mDvDNxlsq-90" value="Creation of mask" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
-          <mxGeometry x="-0.1111" width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="480" y="610" as="sourcePoint" />
-            <mxPoint x="600" y="610" as="targetPoint" />
-            <mxPoint as="offset" />
-          </mxGeometry>
-        </mxCell>
         <mxCell id="bBLqQBSScu7mDvDNxlsq-91" value="padded_mask" style="rounded=0;whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="1">
           <mxGeometry x="280" y="520" width="80" height="80" as="geometry" />
         </mxCell>
@@ -1402,6 +1395,13 @@
         </mxCell>
         <mxCell id="bBLqQBSScu7mDvDNxlsq-107" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#b85450;" vertex="1" parent="1">
           <mxGeometry x="400" y="520" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="BUNSldtV2NJRdBMTGjbV-1" value="Patchification&lt;br&gt;4*4" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry x="-0.1111" width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="600" as="sourcePoint" />
+            <mxPoint x="600" y="600" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>

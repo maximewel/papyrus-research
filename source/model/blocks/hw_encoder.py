@@ -63,7 +63,7 @@ class HwEncoder(nn.Module):
 
         self.dropout_layer = nn.Dropout(self.dropout_ratio)
     
-    def forward(self, x:torch.Tensor, source_padding_mask: torch.Tensor):
+    def forward(self, x:torch.Tensor, source_padding_mask: torch.Tensor, return_weights: bool = False):
         """Forward pass of the HW encoder.
         Args
         -----
@@ -77,7 +77,10 @@ class HwEncoder(nn.Module):
         # Do MHA over input
         # Pre-layer norm before msa.
         x_norm = self.norm_layer_1(x)
-        msha_out, _ = self.mhsa(x_norm, x_norm, x_norm, key_padding_mask=source_padding_mask, need_weights=False)
+        if return_weights:
+            msha_out, attention_weights = self.mhsa(x_norm, x_norm, x_norm, key_padding_mask=source_padding_mask, need_weights=True)
+        else:
+            msha_out, _ = self.mhsa(x_norm, x_norm, x_norm, key_padding_mask=source_padding_mask, need_weights=False)
         msha_out = self.dropout_layer(msha_out) + x
 
         ## P2 - FFN ##
@@ -87,4 +90,7 @@ class HwEncoder(nn.Module):
         ff_out = self.feed_forward(msha_out_norm)
         ff_out = self.dropout_layer(ff_out) + msha_out
 
-        return ff_out
+        if return_weights:
+            return ff_out, attention_weights
+        else:
+            return ff_out
